@@ -18,6 +18,7 @@ A modern Plex client for desktop and mobile. Built with Flutter for native perfo
 <a href='https://play.google.com/store/apps/details?id=com.edde746.plezy'><img height='60' alt='Get it on Google Play' src='./assets/play-store-badge.png'/></a>
 
 ### Desktop
+- [Windows (ARM64)](https://github.com/fizzyfrys/plezy-woa/releases/latest/download/plezy-windows-arm64-installer.exe)
 - [Windows (x64)](https://github.com/edde746/plezy/releases/latest/download/plezy-windows-installer.exe)
 - [macOS (Universal)](https://github.com/edde746/plezy/releases/latest/download/plezy-macos.dmg)
 - [Linux (x64)](https://github.com/edde746/plezy/releases/latest) - .deb, .rpm, .pkg.tar.zst, and portable tar.gz available
@@ -52,7 +53,7 @@ A modern Plex client for desktop and mobile. Built with Flutter for native perfo
 - Download media for offline viewing
 - Background downloads with queue management
 
-### 👥 Watch Together
+### 👥 Watch Together -- BROKEN/MISSING ON Windows ARM64 --
 - Synchronized playback with friends
 - Real-time play/pause and seek sync
 
