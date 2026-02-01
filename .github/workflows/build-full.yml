@@ -6,12 +6,12 @@ on:
       build_x64:
         description: 'Build x64 Windows'
         required: false
-        default: 'true'
+        default: true
         type: boolean
       build_arm64:
         description: 'Build ARM64 Windows'
         required: false
-        default: 'true'
+        default: true
         type: boolean
 
 jobs:
@@ -89,7 +89,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: "stable"
+          channel: "master"
           cache: true
 
       - name: Cache Pub dependencies
