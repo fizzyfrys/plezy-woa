@@ -87,16 +87,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Manually install Flutter since flutter-action doesn't support ARM64 Windows yet
+      # Cache Flutter SDK to avoid re-cloning every build
+      - name: Cache Flutter SDK
+        id: flutter-cache
+        uses: actions/cache@v4
+        with:
+          path: C:\flutter
+          key: flutter-sdk-arm64-master-${{ hashFiles('.github/workflows/build-full.yml') }}
+          restore-keys: |
+            flutter-sdk-arm64-master-
+
+      # Only clone Flutter if not cached
       - name: Install Flutter via Git
+        if: steps.flutter-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
-          git clone https://github.com/flutter/flutter.git -b master C:\flutter
+          git clone https://github.com/flutter/flutter.git -b master --depth 1 C:\flutter
+          
+      - name: Add Flutter to PATH
+        shell: pwsh
+        run: |
           echo "C:\flutter\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           
       - name: Setup Flutter
         run: |
-          flutter precache
+          flutter precache --windows
           flutter --version
           dart --version
           
