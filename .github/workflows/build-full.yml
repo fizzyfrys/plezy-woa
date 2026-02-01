@@ -78,7 +78,8 @@ jobs:
 
   build-windows-arm64:
     if: ${{ github.event.inputs.build_arm64 == 'true' }}
-    runs-on: windows-latest
+    # Use native Windows ARM64 runner for ARM64 builds
+    runs-on: windows-11-arm
     permissions:
       id-token: write
       attestations: write
@@ -89,7 +90,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: "master"
+          channel: "stable"
           cache: true
 
       - name: Cache Pub dependencies
@@ -97,17 +98,16 @@ jobs:
         with:
           path: |
             ~\AppData\Local\Pub\Cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-pub-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: |
-            ${{ runner.os }}-pub-
+            ${{ runner.os }}-${{ runner.arch }}-pub-
 
       - name: Install dependencies
         run: flutter pub get
 
-      # Note: Building ARM64 on x64 requires cross-compilation
-      # Flutter supports this via the --target-platform flag
+      # Building natively on ARM64 runner - no cross-compilation needed
       - name: Build Windows ARM64
-        run: flutter build windows --release --target-platform windows-arm64 --dart-define=ENABLE_UPDATE_CHECK=true
+        run: flutter build windows --release --dart-define=ENABLE_UPDATE_CHECK=true
 
       - name: Install 7-Zip
         run: choco install 7zip -y
