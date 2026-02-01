@@ -299,6 +299,73 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     }
   }
 
+  /// Determines the safest hwdec setting based on video codec and pixel format.
+  ///
+  /// On ARM64 Windows (Snapdragon), 10-bit HEVC hardware decoding crashes.
+  /// This method enables hardware decoding only for known-safe formats:
+  /// - H.264: Always safe (8-bit only)
+  /// - AV1: Safe including 10-bit (Snapdragon supports it)
+  /// - HEVC 8-bit (yuv420p, nv12): Safe
+  /// - HEVC 10-bit (p010, yuv420p10): NOT safe - use software
+  Future<void> _applySmartHwdec(SettingsService settingsService) async {
+    if (player == null) return;
+
+    // Only apply smart hwdec if hardware decoding is enabled in settings
+    if (!settingsService.getEnableHardwareDecoding()) {
+      appLogger.d('Smart hwdec: Hardware decoding disabled in settings');
+      return;
+    }
+
+    try {
+      // Get video codec and pixel format from MPV
+      final codec = await player!.getProperty('video-format');
+      final pixelformat = await player!.getProperty('video-params/pixelformat');
+
+      appLogger.d('Smart hwdec: codec=$codec, pixelformat=$pixelformat');
+
+      // Determine if hardware decoding is safe for this video
+      bool useHardware = false;
+      String reason = '';
+
+      if (codec == null || codec.isEmpty) {
+        // No codec info yet, stay with initial setting
+        appLogger.d('Smart hwdec: No codec info available yet');
+        return;
+      }
+
+      if (codec == 'h264') {
+        // H.264 is always safe (8-bit only codec)
+        useHardware = true;
+        reason = 'H.264 always safe';
+      } else if (codec == 'av1') {
+        // AV1 is safe including 10-bit on Snapdragon
+        useHardware = true;
+        reason = 'AV1 safe (including 10-bit)';
+      } else if (codec == 'hevc') {
+        // HEVC: only safe for 8-bit formats
+        final is8Bit =
+            pixelformat == 'yuv420p' || pixelformat == 'nv12' || pixelformat == 'yuv422p' || pixelformat == 'yuv444p';
+        if (is8Bit) {
+          useHardware = true;
+          reason = 'HEVC 8-bit ($pixelformat) safe';
+        } else {
+          useHardware = false;
+          reason = 'HEVC 10-bit ($pixelformat) - using software to prevent crash';
+        }
+      } else {
+        // Other codecs (VP9, etc.): try hardware
+        useHardware = true;
+        reason = 'Unknown codec $codec - trying hardware';
+      }
+
+      final hwdecValue = useHardware ? 'd3d11va' : 'no';
+      await player!.setProperty('hwdec', hwdecValue);
+      appLogger.i('Smart hwdec: Set hwdec=$hwdecValue ($reason)');
+    } catch (e) {
+      appLogger.w('Smart hwdec: Failed to apply', error: e);
+    }
+  }
+
   Future<void> _initializePlayer() async {
     try {
       // Load buffer size from settings
@@ -431,6 +498,11 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
       _playbackRestartSubscription = player!.streams.playbackRestart.listen((_) async {
         if (!_hasFirstFrame.value) {
           _hasFirstFrame.value = true;
+
+          // Apply smart hardware decoding based on codec/pixelformat (Windows ARM64)
+          if (Platform.isWindows) {
+            await _applySmartHwdec(settingsService);
+          }
 
           // Apply frame rate matching on Android if enabled
           if (Platform.isAndroid && settingsService.getMatchContentFrameRate()) {
@@ -1650,9 +1722,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
       focusNode: _screenFocusNode,
       autofocus: true,
       onKeyEvent: (node, event) => KeyEventResult.handled,
-      child: _isPlayerInitialized && player != null
-          ? _buildVideoPlayer(context)
-          : _buildLoadingSpinner(),
+      child: _isPlayerInitialized && player != null ? _buildVideoPlayer(context) : _buildLoadingSpinner(),
     );
   }
 
