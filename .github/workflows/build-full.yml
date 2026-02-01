@@ -91,7 +91,8 @@ jobs:
       - name: Download Flutter SDK
         shell: pwsh
         run: |
-          $FlutterUrl = "https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_3.27.1-stable.zip"
+          # Download latest Flutter from master channel
+          $FlutterUrl = "https://storage.googleapis.com/flutter_infra_release/releases/master/windows/flutter_windows_master.zip"
           Invoke-WebRequest -Uri $FlutterUrl -OutFile flutter.zip
           Expand-Archive flutter.zip -DestinationPath C:\
           echo "C:\flutter\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
