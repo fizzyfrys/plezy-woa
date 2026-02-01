@@ -6,7 +6,6 @@ import 'package:plezy/widgets/app_icon.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
 import 'package:os_media_controls/os_media_controls.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';
@@ -300,12 +299,14 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     }
   }
 
-  /// Load custom mpv.conf file from app documents directory
+  /// Load custom mpv.conf file from app executable directory
   /// This allows advanced MPV features like auto profiles that can't be set via properties
   Future<void> _loadCustomMpvConfig() async {
     try {
-      final Directory appDocDir = await getApplicationDocumentsDirectory();
-      final confFile = File('${appDocDir.path}/mpv.conf');
+      // Get the directory where the executable is located
+      final exePath = Platform.resolvedExecutable;
+      final exeDir = File(exePath).parent.path;
+      final confFile = File('$exeDir/mpv.conf');
 
       if (await confFile.exists()) {
         // Use --include to load the config file
