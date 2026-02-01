@@ -382,7 +382,15 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
       await player!.setProperty('sub-ass', 'yes'); // Enable libass
       await player!.setProperty('demuxer-max-bytes', bufferSizeBytes.toString());
       await player!.setProperty('msg-level', debugLoggingEnabled ? 'all=debug' : 'all=error');
-      await player!.setProperty('hwdec', _getHwdecValue(enableHardwareDecoding));
+
+      // On Windows, start with software decoding to avoid 10-bit HEVC crashes.
+      // Smart hwdec will upgrade to hardware for safe formats after first frame.
+      if (Platform.isWindows && enableHardwareDecoding) {
+        await player!.setProperty('hwdec', 'no');
+        appLogger.d('Windows: Starting with software decode, will upgrade if safe');
+      } else {
+        await player!.setProperty('hwdec', _getHwdecValue(enableHardwareDecoding));
+      }
 
       // Subtitle styling
       await player!.setProperty('sub-font-size', settingsService.getSubtitleFontSize().toString());
