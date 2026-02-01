@@ -301,7 +301,8 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
 
   /// Load custom mpv.conf file from app executable directory
   /// This allows advanced MPV features like auto profiles that can't be set via properties
-  Future<void> _loadCustomMpvConfig() async {
+  /// Returns true if config file was found and loaded
+  Future<bool> _loadCustomMpvConfig() async {
     try {
       // Get the directory where the executable is located
       final exePath = Platform.resolvedExecutable;
@@ -312,11 +313,14 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
         // Use --include to load the config file
         await player!.setProperty('include', confFile.path);
         appLogger.d('Loaded custom mpv.conf from: ${confFile.path}');
+        return true;
       } else {
         appLogger.d('No custom mpv.conf found at: ${confFile.path}');
+        return false;
       }
     } catch (e) {
       appLogger.w('Failed to load custom mpv.conf', error: e);
+      return false;
     }
   }
 
@@ -334,12 +338,19 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
       player = Player(useExoPlayer: useExoPlayer);
 
       // Load custom mpv.conf if it exists (for advanced features like auto profiles)
-      await _loadCustomMpvConfig();
+      final hasCustomConfig = await _loadCustomMpvConfig();
 
       await player!.setProperty('sub-ass', 'yes'); // Enable libass
       await player!.setProperty('demuxer-max-bytes', bufferSizeBytes.toString());
       await player!.setProperty('msg-level', debugLoggingEnabled ? 'all=debug' : 'all=error');
-      await player!.setProperty('hwdec', _getHwdecValue(enableHardwareDecoding));
+
+      // Only set hwdec from UI if no custom mpv.conf exists
+      // This allows mpv.conf to control hwdec (including auto profiles)
+      if (!hasCustomConfig) {
+        await player!.setProperty('hwdec', _getHwdecValue(enableHardwareDecoding));
+      } else {
+        appLogger.d('Skipping UI hwdec setting - using mpv.conf configuration');
+      }
 
       // Subtitle styling
       await player!.setProperty('sub-font-size', settingsService.getSubtitleFontSize().toString());
