@@ -83,7 +83,7 @@ jobs:
     permissions:
       id-token: write
       attestations: write
-      contents: read
+      contents: write  # Required to create GitHub releases
     steps:
       - uses: actions/checkout@v4
 
