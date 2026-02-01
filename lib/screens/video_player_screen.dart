@@ -6,6 +6,7 @@ import 'package:plezy/widgets/app_icon.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
 import 'package:os_media_controls/os_media_controls.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';
@@ -299,6 +300,25 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     }
   }
 
+  /// Load custom mpv.conf file from app documents directory
+  /// This allows advanced MPV features like auto profiles that can't be set via properties
+  Future<void> _loadCustomMpvConfig() async {
+    try {
+      final Directory appDocDir = await getApplicationDocumentsDirectory();
+      final confFile = File('${appDocDir.path}/mpv.conf');
+
+      if (await confFile.exists()) {
+        // Use --include to load the config file
+        await player!.setProperty('include', confFile.path);
+        appLogger.d('Loaded custom mpv.conf from: ${confFile.path}');
+      } else {
+        appLogger.d('No custom mpv.conf found at: ${confFile.path}');
+      }
+    } catch (e) {
+      appLogger.w('Failed to load custom mpv.conf', error: e);
+    }
+  }
+
   Future<void> _initializePlayer() async {
     try {
       // Load buffer size from settings
@@ -311,6 +331,9 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
 
       // Create player (on Android, uses ExoPlayer by default, MPV as fallback)
       player = Player(useExoPlayer: useExoPlayer);
+
+      // Load custom mpv.conf if it exists (for advanced features like auto profiles)
+      await _loadCustomMpvConfig();
 
       await player!.setProperty('sub-ass', 'yes'); // Enable libass
       await player!.setProperty('demuxer-max-bytes', bufferSizeBytes.toString());
@@ -1650,9 +1673,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
       focusNode: _screenFocusNode,
       autofocus: true,
       onKeyEvent: (node, event) => KeyEventResult.handled,
-      child: _isPlayerInitialized && player != null
-          ? _buildVideoPlayer(context)
-          : _buildLoadingSpinner(),
+      child: _isPlayerInitialized && player != null ? _buildVideoPlayer(context) : _buildLoadingSpinner(),
     );
   }
 
