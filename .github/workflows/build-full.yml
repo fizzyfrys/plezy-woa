@@ -145,3 +145,29 @@ jobs:
         with:
           name: windows-arm64-installer
           path: plezy-windows-arm64-installer.exe
+
+      # Automatically create a GitHub release after successful build
+      - name: Get version from pubspec.yaml
+        id: get_version
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path pubspec.yaml -Pattern '^version: (.+)$').Matches.Groups[1].Value
+          $versionOnly = $version.Split('+')[0]
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "version_tag=v$versionOnly" >> $env:GITHUB_OUTPUT
+          echo "Version: $version"
+          echo "Tag: v$versionOnly"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.version_tag }}
+          name: Plezy ${{ steps.get_version.outputs.version_tag }} - Windows ARM64
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            plezy-windows-arm64-portable.7z
+            plezy-windows-arm64-installer.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
