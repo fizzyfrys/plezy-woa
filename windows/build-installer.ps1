@@ -4,23 +4,26 @@
 
 param(
     [string]$OutputDir = ".",
-    [string]$Version = "1.0.0"
+    [string]$Version = "1.0.0",
+    [ValidateSet("x64", "arm64")]
+    [string]$Architecture = "x64"
 )
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "Building Windows installer packages..." -ForegroundColor Cyan
+Write-Host "Building Windows installer packages for $Architecture..." -ForegroundColor Cyan
 
 # Ensure we're in the project root
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Split-Path -Parent $ScriptDir
 Set-Location $ProjectRoot
 
-# Define paths
-$BuildDir = "build\windows\x64\runner\Release"
-$PortableZip = Join-Path (Resolve-Path $OutputDir) "plezy-windows-portable.7z"
-$InstallerExe = Join-Path (Resolve-Path $OutputDir) "plezy-windows-installer.exe"
-$SetupScript = "setup.iss"
+# Define paths based on architecture
+$BuildDir = "build\windows\$Architecture\runner\Release"
+$ArchSuffix = if ($Architecture -eq "arm64") { "-arm64" } else { "" }
+$PortableZip = Join-Path (Resolve-Path $OutputDir) "plezy-windows$ArchSuffix-portable.7z"
+$InstallerExe = Join-Path (Resolve-Path $OutputDir) "plezy-windows$ArchSuffix-installer.exe"
+$SetupScript = "setup$ArchSuffix.iss"
 
 # Check if build exists
 if (-not (Test-Path $BuildDir)) {
@@ -32,18 +35,39 @@ Write-Host "Found build at: $BuildDir" -ForegroundColor Green
 
 # Check for 7-Zip
 Write-Host "`nChecking for 7-Zip..." -ForegroundColor Cyan
-if (-not (Get-Command 7z -ErrorAction SilentlyContinue)) {
-    Write-Host "7-Zip not found in PATH. Installing via Chocolatey..." -ForegroundColor Yellow
+$7zPath = $null
+
+# Check standard install locations first
+$7zLocations = @(
+    "C:\Program Files\7-Zip\7z.exe",
+    "C:\Program Files (x86)\7-Zip\7z.exe",
+    (Get-Command 7z -ErrorAction SilentlyContinue).Source
+)
+
+foreach ($loc in $7zLocations) {
+    if ($loc -and (Test-Path $loc)) {
+        $7zPath = $loc
+        Write-Host "Found 7-Zip at: $7zPath" -ForegroundColor Green
+        break
+    }
+}
+
+if (-not $7zPath) {
+    Write-Host "7-Zip not found. Installing via Chocolatey..." -ForegroundColor Yellow
 
     if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
-        Write-Error "Chocolatey is not installed. Please install it from https://chocolatey.org/install"
+        Write-Error "Chocolatey is not installed. Please install 7-Zip manually from https://www.7-zip.org/"
         exit 1
     }
 
     choco install 7zip -y
     refreshenv
-
-    if (-not (Get-Command 7z -ErrorAction SilentlyContinue)) {
+    
+    # Check again after install
+    if (Test-Path "C:\Program Files\7-Zip\7z.exe") {
+        $7zPath = "C:\Program Files\7-Zip\7z.exe"
+    }
+    else {
         Write-Error "Failed to install 7-Zip"
         exit 1
     }
@@ -56,14 +80,20 @@ try {
     if (Test-Path $PortableZip) {
         Remove-Item $PortableZip -Force
     }
-    7z a -mx=9 $PortableZip *
+    & $7zPath a -mx=9 $PortableZip *
     Write-Host "Created: $PortableZip" -ForegroundColor Green
-} finally {
+}
+finally {
     Pop-Location
 }
 
 # Create Inno Setup Script
 Write-Host "`nGenerating Inno Setup script..." -ForegroundColor Cyan
+
+# Set architecture-specific Inno Setup values
+$InnoArch = if ($Architecture -eq "arm64") { "arm64" } else { "x64" }
+$InnoOutputFilename = "plezy-windows$ArchSuffix-installer"
+
 @"
 #define Name "Plezy"
 #define Version "$Version"
@@ -79,13 +109,13 @@ DefaultDirName={autopf}\{#Name}
 DefaultGroupName={#Name}
 AllowNoIcons=yes
 OutputDir=.
-OutputBaseFilename=plezy-windows-installer
+OutputBaseFilename=$InnoOutputFilename
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=lowest
-ArchitecturesAllowed=x64
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesAllowed=$InnoArch
+ArchitecturesInstallIn64BitMode=$InnoArch
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -94,7 +124,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "build\windows\$Architecture\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#Name}"; Filename: "{app}\{#ExeName}"

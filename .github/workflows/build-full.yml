@@ -1,0 +1,140 @@
+name: Full Build (with ARM64)
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_x64:
+        description: 'Build x64 Windows'
+        required: false
+        default: 'true'
+        type: boolean
+      build_arm64:
+        description: 'Build ARM64 Windows'
+        required: false
+        default: 'true'
+        type: boolean
+
+jobs:
+  build-windows-x64:
+    if: ${{ github.event.inputs.build_x64 == 'true' }}
+    runs-on: windows-latest
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+
+      - name: Cache Pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\Pub\Cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows x64
+        run: flutter build windows --release --dart-define=ENABLE_UPDATE_CHECK=true
+
+      - name: Install 7-Zip
+        run: choco install 7zip -y
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+
+      - name: Build Windows x64 Installer
+        shell: pwsh
+        run: |
+          .\windows\build-installer.ps1 -Architecture x64 -Version "${{ github.ref_name }}"
+
+      - name: Attest Windows x64 artifacts
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            plezy-windows-portable.7z
+            plezy-windows-installer.exe
+
+      - name: Upload x64 Portable Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-portable
+          path: plezy-windows-portable.7z
+
+      - name: Upload x64 Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-installer
+          path: plezy-windows-installer.exe
+
+  build-windows-arm64:
+    if: ${{ github.event.inputs.build_arm64 == 'true' }}
+    runs-on: windows-latest
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+
+      - name: Cache Pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\Pub\Cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Note: Building ARM64 on x64 requires cross-compilation
+      # Flutter supports this via the --target-platform flag
+      - name: Build Windows ARM64
+        run: flutter build windows --release --target-platform windows-arm64 --dart-define=ENABLE_UPDATE_CHECK=true
+
+      - name: Install 7-Zip
+        run: choco install 7zip -y
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+
+      - name: Build Windows ARM64 Installer
+        shell: pwsh
+        run: |
+          .\windows\build-installer.ps1 -Architecture arm64 -Version "${{ github.ref_name }}"
+
+      - name: Attest Windows ARM64 artifacts
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            plezy-windows-arm64-portable.7z
+            plezy-windows-arm64-installer.exe
+
+      - name: Upload ARM64 Portable Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-arm64-portable
+          path: plezy-windows-arm64-portable.7z
+
+      - name: Upload ARM64 Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-arm64-installer
+          path: plezy-windows-arm64-installer.exe
