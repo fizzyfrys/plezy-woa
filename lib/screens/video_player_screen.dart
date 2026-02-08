@@ -11,7 +11,6 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../mpv/mpv.dart';
-import '../mpv/player/player_android.dart';
 
 import '../../services/plex_client.dart';
 import '../services/plex_api_cache.dart';
@@ -42,12 +41,10 @@ import '../utils/platform_detector.dart';
 import '../utils/provider_extensions.dart';
 import '../utils/language_codes.dart';
 import '../utils/snackbar_helper.dart';
-import '../utils/plex_url_helper.dart';
 import '../utils/video_player_navigation.dart';
 import '../widgets/video_controls/video_controls.dart';
 import '../focus/focusable_wrapper.dart';
 import '../focus/input_mode_tracker.dart';
-import '../focus/dpad_navigator.dart';
 import '../focus/key_event_utils.dart';
 import '../i18n/strings.g.dart';
 import '../watch_together/providers/watch_together_provider.dart';
@@ -102,7 +99,6 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
   bool _isDisposingForNavigation = false;
   bool _waitingForExternalSubsTrackSelection = false;
   bool _isHandlingBack = false;
-  bool _hasThumbnails = false;
 
   // Auto-play next episode
   Timer? _autoPlayTimer;
@@ -134,14 +130,6 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
   /// Get the correct PlexClient for this metadata's server
   PlexClient _getClientForMetadata(BuildContext context) {
     return context.getClientForServer(widget.metadata.serverId!);
-  }
-
-  String? _buildThumbnailUrl(BuildContext context, Duration time) {
-    final partId = _currentMediaInfo?.partId;
-    if (partId == null || widget.isOffline) return null;
-    final client = _getClientForMetadata(context);
-    return '${client.config.baseUrl}/library/parts/$partId/indexes/sd/${time.inMilliseconds}'
-        .withPlexToken(client.config.token);
   }
 
   final ValueNotifier<bool> _isBuffering = ValueNotifier<bool>(false); // Track if video is currently buffering
@@ -311,6 +299,73 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     }
   }
 
+  /// Determines the safest hwdec setting based on video codec and pixel format.
+  ///
+  /// On ARM64 Windows (Snapdragon), 10-bit HEVC hardware decoding crashes.
+  /// This method enables hardware decoding only for known-safe formats:
+  /// - H.264: Always safe (8-bit only)
+  /// - AV1: Safe including 10-bit (Snapdragon supports it)
+  /// - HEVC 8-bit (yuv420p, nv12): Safe
+  /// - HEVC 10-bit (p010, yuv420p10): NOT safe - use software
+  Future<void> _applySmartHwdec(SettingsService settingsService) async {
+    if (player == null) return;
+
+    // Only apply smart hwdec if hardware decoding is enabled in settings
+    if (!settingsService.getEnableHardwareDecoding()) {
+      appLogger.d('Smart hwdec: Hardware decoding disabled in settings');
+      return;
+    }
+
+    try {
+      // Get video codec and pixel format from MPV
+      final codec = await player!.getProperty('video-format');
+      final pixelformat = await player!.getProperty('video-params/pixelformat');
+
+      appLogger.d('Smart hwdec: codec=$codec, pixelformat=$pixelformat');
+
+      // Determine if hardware decoding is safe for this video
+      bool useHardware = false;
+      String reason = '';
+
+      if (codec == null || codec.isEmpty) {
+        // No codec info yet, stay with initial setting
+        appLogger.d('Smart hwdec: No codec info available yet');
+        return;
+      }
+
+      if (codec == 'h264') {
+        // H.264 is always safe (8-bit only codec)
+        useHardware = true;
+        reason = 'H.264 always safe';
+      } else if (codec == 'av1') {
+        // AV1 is safe including 10-bit on Snapdragon
+        useHardware = true;
+        reason = 'AV1 safe (including 10-bit)';
+      } else if (codec == 'hevc') {
+        // HEVC: only safe for 8-bit formats
+        final is8Bit =
+            pixelformat == 'yuv420p' || pixelformat == 'nv12' || pixelformat == 'yuv422p' || pixelformat == 'yuv444p';
+        if (is8Bit) {
+          useHardware = true;
+          reason = 'HEVC 8-bit ($pixelformat) safe';
+        } else {
+          useHardware = false;
+          reason = 'HEVC 10-bit ($pixelformat) - using software to prevent crash';
+        }
+      } else {
+        // Other codecs (VP9, etc.): try hardware
+        useHardware = true;
+        reason = 'Unknown codec $codec - trying hardware';
+      }
+
+      final hwdecValue = useHardware ? 'd3d11va' : 'no';
+      await player!.setProperty('hwdec', hwdecValue);
+      appLogger.i('Smart hwdec: Set hwdec=$hwdecValue ($reason)');
+    } catch (e) {
+      appLogger.w('Smart hwdec: Failed to apply', error: e);
+    }
+  }
+
   Future<void> _initializePlayer() async {
     try {
       // Load buffer size from settings
@@ -327,15 +382,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
       await player!.setProperty('sub-ass', 'yes'); // Enable libass
       await player!.setProperty('demuxer-max-bytes', bufferSizeBytes.toString());
       await player!.setProperty('msg-level', debugLoggingEnabled ? 'all=debug' : 'all=error');
-
-      // On Windows, start with software decoding to avoid 10-bit HEVC crashes.
-      // Smart hwdec will upgrade to hardware for safe formats after first frame.
-      if (Platform.isWindows && enableHardwareDecoding) {
-        await player!.setProperty('hwdec', 'no');
-        appLogger.d('Windows: Starting with software decode, will upgrade if safe');
-      } else {
-        await player!.setProperty('hwdec', _getHwdecValue(enableHardwareDecoding));
-      }
+      await player!.setProperty('hwdec', _getHwdecValue(enableHardwareDecoding));
 
       // Subtitle styling
       await player!.setProperty('sub-font-size', settingsService.getSubtitleFontSize().toString());
@@ -451,6 +498,11 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
       _playbackRestartSubscription = player!.streams.playbackRestart.listen((_) async {
         if (!_hasFirstFrame.value) {
           _hasFirstFrame.value = true;
+
+          // Apply smart hardware decoding based on codec/pixelformat (Windows ARM64)
+          if (Platform.isWindows) {
+            await _applySmartHwdec(settingsService);
+          }
 
           // Apply frame rate matching on Android if enabled
           if (Platform.isAndroid && settingsService.getMatchContentFrameRate()) {
@@ -728,11 +780,8 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
   Future<void> _loadAdjacentEpisodes() async {
     if (!mounted) return;
 
-    if (widget.isOffline) {
-      // Offline mode: find next/previous from downloaded episodes
-      _loadAdjacentEpisodesOffline();
-      return;
-    }
+    // Skip loading adjacent episodes in offline mode (requires server connection)
+    if (widget.isOffline) return;
 
     try {
       // Use server-specific client for this metadata
@@ -757,48 +806,8 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     }
   }
 
-  /// Load next/previous episodes from locally downloaded content
-  void _loadAdjacentEpisodesOffline() {
-    if (!widget.metadata.isEpisode) return;
-
-    final showKey = widget.metadata.grandparentRatingKey;
-    if (showKey == null) return;
-
-    try {
-      final downloadProvider = context.read<DownloadProvider>();
-      final episodes = downloadProvider.getDownloadedEpisodesForShow(showKey);
-
-      if (episodes.isEmpty) return;
-
-      // Sort by season then episode number
-      final sorted = List<PlexMetadata>.from(episodes)
-        ..sort((a, b) {
-          final seasonCmp = (a.parentIndex ?? 0).compareTo(b.parentIndex ?? 0);
-          if (seasonCmp != 0) return seasonCmp;
-          return (a.index ?? 0).compareTo(b.index ?? 0);
-        });
-
-      // Find current episode in the sorted list
-      final currentIdx = sorted.indexWhere((ep) => ep.ratingKey == widget.metadata.ratingKey);
-
-      if (currentIdx == -1) return;
-
-      if (mounted) {
-        setState(() {
-          _previousEpisode = currentIdx > 0 ? sorted[currentIdx - 1] : null;
-          _nextEpisode = currentIdx < sorted.length - 1 ? sorted[currentIdx + 1] : null;
-        });
-      }
-    } catch (e) {
-      appLogger.d('Could not load offline adjacent episodes', error: e);
-    }
-  }
-
   Future<void> _startPlayback() async {
     if (!mounted) return;
-
-    // Capture providers before async gaps
-    final offlineWatchService = widget.isOffline ? context.read<OfflineWatchSyncService>() : null;
 
     try {
       PlaybackInitializationResult result;
@@ -828,19 +837,8 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
         // This causes other media apps (Spotify, podcasts, etc.) to pause
         await player!.requestAudioFocus();
 
-        // Pass resume position if available.
-        // In offline mode, prefer locally tracked progress over the cached server value
-        // since the user may have watched further since downloading.
-        Duration? resumePosition;
-        if (widget.isOffline) {
-          final globalKey = '${widget.metadata.serverId}:${widget.metadata.ratingKey}';
-          final localOffset = await offlineWatchService!.getLocalViewOffset(globalKey);
-          if (localOffset != null && localOffset > 0) {
-            resumePosition = Duration(milliseconds: localOffset);
-            appLogger.d('Resuming offline playback from local progress: ${localOffset}ms');
-          }
-        }
-        resumePosition ??= widget.metadata.viewOffset != null
+        // Pass resume position if available
+        final resumePosition = widget.metadata.viewOffset != null
             ? Duration(milliseconds: widget.metadata.viewOffset!)
             : null;
 
@@ -852,20 +850,6 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
           Media(result.videoUrl!, start: resumePosition, headers: plexHeaders),
           play: !hasExternalSubs,
         );
-
-        // Apply subtitle styling to ExoPlayer native layer (CaptionStyleCompat + libass font scale)
-        // Must be called after open() since that's when ExoPlayer initializes
-        if (player is PlayerAndroid) {
-          final settingsService = await SettingsService.getInstance();
-          await (player as PlayerAndroid).setSubtitleStyle(
-            fontSize: settingsService.getSubtitleFontSize().toDouble(),
-            textColor: settingsService.getSubtitleTextColor(),
-            borderSize: settingsService.getSubtitleBorderSize().toDouble(),
-            borderColor: settingsService.getSubtitleBorderColor(),
-            bgColor: settingsService.getSubtitleBackgroundColor(),
-            bgOpacity: settingsService.getSubtitleBackgroundOpacity(),
-          );
-        }
 
         // Attach player to Watch Together session for sync (if in session)
         if (mounted && !widget.isOffline) {
@@ -879,20 +863,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
         setState(() {
           _availableVersions = result.availableVersions.cast();
           _currentMediaInfo = result.mediaInfo;
-          _hasThumbnails = false;
         });
-
-        // Check whether any thumbnails exist by requesting the first one
-        if (_currentMediaInfo?.partId != null && !widget.isOffline) {
-          final partId = _currentMediaInfo!.partId!;
-          final client = _getClientForMetadata(context);
-          client.checkThumbnailsAvailable(partId).then((available) {
-            // Guard against media having changed while the probe was in flight
-            if (mounted && _currentMediaInfo?.partId == partId) {
-              setState(() => _hasThumbnails = available);
-            }
-          });
-        }
 
         // Initialize video PIP and filter manager with player and available versions
         if (player != null) {
@@ -957,7 +928,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
       }
     } on PlaybackException catch (e) {
       if (mounted) {
-        showErrorSnackBar(context, e.message);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } catch (e) {
       if (mounted) {
@@ -1170,7 +1141,6 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
             }
             if (!mounted) return;
             _isExiting.value = true;
-            BackKeyUpSuppressor.suppressBackUntilKeyUp();
             Navigator.of(context).pop(true);
           }
         }
@@ -1191,12 +1161,6 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
       // Default behavior for hosts or non-session users
       if (!mounted) return;
       _isExiting.value = true;
-      // Suppress stray BACK KeyUp on the previous route: on Android TV the
-      // system back gesture pops the route around KeyDown, so the KeyUp arrives
-      // at the previous route and would be misinterpreted as a new BACK press.
-      // markClosedViaBackKey() (set by handleBackKeyAction for key-triggered
-      // pops) makes this a no-op, so it only activates for system-back pops.
-      BackKeyUpSuppressor.suppressBackUntilKeyUp();
       Navigator.of(context).pop(true);
     } finally {
       _isHandlingBack = false;
@@ -1227,9 +1191,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     _isExiting.dispose();
     _controlsVisible.dispose();
 
-    // Stop progress tracking and send final state.
-    // Fire-and-forget: dispose() is synchronous so we can't await, but the
-    // database write is app-level and will typically complete before teardown.
+    // Stop progress tracking and send final state
     _progressTracker?.sendProgress('stopped');
     _progressTracker?.stopTracking();
     _progressTracker?.dispose();
@@ -1379,7 +1341,12 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     appLogger.e('[Player ERROR] $error');
     if (!mounted) return;
 
-    showErrorSnackBar(context, t.messages.failedPlayback(action: 'play', error: error));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(t.messages.failedPlayback(action: 'play', error: error)),
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   /// Handle notification when native player switched from ExoPlayer to MPV
@@ -1387,7 +1354,9 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     appLogger.i('Player backend switched from ExoPlayer to MPV (native fallback)');
 
     if (mounted) {
-      showAppSnackBar(context, t.messages.switchingToCompatiblePlayer);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t.messages.switchingToCompatiblePlayer), duration: const Duration(seconds: 2)),
+      );
     }
   }
 
@@ -1677,12 +1646,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     // If player isn't available, navigate without preserving settings
     if (player == null) {
       if (mounted) {
-        navigateToVideoPlayer(
-          context,
-          metadata: episodeMetadata,
-          usePushReplacement: true,
-          isOffline: widget.isOffline,
-        );
+        navigateToVideoPlayer(context, metadata: episodeMetadata, usePushReplacement: true);
       }
       return;
     }
@@ -1692,12 +1656,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     if (currentPlayer == null) {
       // Player already disposed, navigate without preserving settings
       if (mounted) {
-        navigateToVideoPlayer(
-          context,
-          metadata: episodeMetadata,
-          usePushReplacement: true,
-          isOffline: widget.isOffline,
-        );
+        navigateToVideoPlayer(context, metadata: episodeMetadata, usePushReplacement: true);
       }
       return;
     }
@@ -1707,7 +1666,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
 
     // Pause and stop current playback
     currentPlayer.pause();
-    await _progressTracker?.sendProgress('stopped');
+    _progressTracker?.sendProgress('stopped');
     _progressTracker?.stopTracking();
 
     // Ensure the native player is fully disposed before creating the next one
@@ -1721,7 +1680,6 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
         preferredAudioTrack: currentAudioTrack,
         preferredSubtitleTrack: currentSubtitleTrack,
         usePushReplacement: true,
-        isOffline: widget.isOffline,
       );
     }
   }
@@ -1734,7 +1692,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
 
     try {
       _detachFromWatchTogetherSession();
-      await _progressTracker?.sendProgress('stopped');
+      _progressTracker?.sendProgress('stopped');
       _progressTracker?.stopTracking();
       // Clear frame rate matching before disposing (Android only)
       await _clearFrameRateMatching();
@@ -1756,36 +1714,14 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
 
   @override
   Widget build(BuildContext context) {
-    final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? true;
     // Screen-level Focus wraps ALL phases (loading + initialized).
     // - autofocus: grabs focus when no deeper child claims it.
     // - onKeyEvent: catch-all that consumes any event children didn't handle,
     //   preventing leaks to previous routes.
     return Focus(
       focusNode: _screenFocusNode,
-      autofocus: isCurrentRoute,
-      canRequestFocus: isCurrentRoute,
-      onKeyEvent: (node, event) {
-        if (!isCurrentRoute) return KeyEventResult.ignored;
-        // Safety net: if this screen-level node itself has primary focus
-        // (no descendant focused, e.g. after controls auto-hide), self-heal.
-        // BACK is excluded: on Android TV the BACK button fires both a key event
-        // and a system back gesture. Handling it here would double-pop because
-        // PopScope.onPopInvokedWithResult also processes the system back gesture.
-        // PopScope handles BACK navigation exclusively.
-        if (node.hasPrimaryFocus && !event.logicalKey.isBackKey) {
-          // Redirect focus to the first traversable descendant (video controls)
-          // and show controls immediately so the first key press isn't swallowed.
-          if (event.isActionable) {
-            _controlsVisible.value = true;
-            final descendants = node.traversalDescendants;
-            if (descendants.isNotEmpty) {
-              descendants.first.requestFocus();
-            }
-          }
-        }
-        return KeyEventResult.handled;
-      },
+      autofocus: true,
+      onKeyEvent: (node, event) => KeyEventResult.handled,
       child: _isPlayerInitialized && player != null ? _buildVideoPlayer(context) : _buildLoadingSpinner(),
     );
   }
@@ -1797,12 +1733,10 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     return PopScope(
       canPop: false, // Disable swipe-back gesture to prevent interference with timeline scrubbing
       onPopInvokedWithResult: (didPop, result) {
-        // Only process system-initiated back gestures (didPop: false).
-        // Programmatic Navigator.pop() triggers didPop: true — ignore it here
-        // to avoid consuming the BackKeyCoordinator flag before the system back
-        // gesture arrives (which would cause a double-pop on Android TV).
+        if (BackKeyCoordinator.consumeIfHandled()) return;
+        // Allow programmatic back navigation from UI controls
         if (!didPop) {
-          if (BackKeyCoordinator.consumeIfHandled()) return;
+          // Mark handled to prevent the same BACK press from reaching the next route.
           BackKeyCoordinator.markHandled();
           _handleBackButton();
         }
@@ -1898,9 +1832,6 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
                         controlsVisible: _controlsVisible,
                         shaderService: _shaderService,
                         onShaderChanged: () => setState(() {}),
-                        thumbnailUrlBuilder: _hasThumbnails && _currentMediaInfo?.partId != null
-                            ? (Duration time) => _buildThumbnailUrl(context, time)!
-                            : null,
                       ),
                     );
                   },
