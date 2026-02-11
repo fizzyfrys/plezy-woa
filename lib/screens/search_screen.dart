@@ -133,6 +133,12 @@ class _SearchScreenState extends State<SearchScreen> with Refreshable, FullRefre
     FocusUtils.requestFocusAfterBuild(this, _searchFocusNode);
   }
 
+  /// Set the search query externally (e.g. from companion remote)
+  @override
+  void setSearchQuery(String query) {
+    _searchController.text = query;
+  }
+
   // Public method to fully reload all content (for profile switches)
   @override
   void fullRefresh() {
@@ -206,7 +212,7 @@ class _SearchScreenState extends State<SearchScreen> with Refreshable, FullRefre
           body: SafeArea(
             child: CustomScrollView(
               slivers: [
-                DesktopSliverAppBar(title: Text(t.screens.search), floating: true),
+                DesktopSliverAppBar(title: Text(t.common.search), floating: true),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),

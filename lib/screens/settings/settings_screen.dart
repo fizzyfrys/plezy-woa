@@ -18,6 +18,7 @@ import '../../services/download_storage_service.dart';
 import '../../services/saf_storage_service.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/user_profile_provider.dart';
 import '../../services/keyboard_shortcuts_service.dart';
 import '../../services/settings_service.dart' as settings;
 import '../../services/update_service.dart';
@@ -26,6 +27,9 @@ import '../../utils/platform_detector.dart';
 import '../../widgets/desktop_app_bar.dart';
 import '../../widgets/tv_number_spinner.dart';
 import 'hotkey_recorder_widget.dart';
+import '../../providers/companion_remote_provider.dart';
+import '../../screens/companion_remote/mobile_remote_screen.dart';
+import '../../widgets/companion_remote/remote_session_dialog.dart';
 import 'about_screen.dart';
 import 'logs_screen.dart';
 import 'mpv_config_screen.dart';
@@ -62,6 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
   static const _kShowServerNameOnHubs = 'show_server_name_on_hubs';
   static const _kAlwaysKeepSidebarOpen = 'always_keep_sidebar_open';
   static const _kShowUnwatchedCount = 'show_unwatched_count';
+  static const _kRequireProfileSelectionOnOpen = 'require_profile_selection_on_open';
   static const _kPlayerBackend = 'player_backend';
   static const _kHardwareDecoding = 'hardware_decoding';
   static const _kMatchContentFrameRate = 'match_content_frame_rate';
@@ -109,6 +114,7 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
   bool _enableDiscordRPC = false;
   bool _matchContentFrameRate = false;
   bool _useExoPlayer = true; // Android only: ExoPlayer vs MPV
+  bool _requireProfileSelectionOnOpen = false;
 
   // Update checking state
   bool _isCheckingForUpdate = false;
@@ -175,6 +181,7 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
       _enableDiscordRPC = _settingsService.getEnableDiscordRPC();
       _matchContentFrameRate = _settingsService.getMatchContentFrameRate();
       _useExoPlayer = _settingsService.getUseExoPlayer();
+      _requireProfileSelectionOnOpen = _settingsService.getRequireProfileSelectionOnOpen();
       _isLoading = false;
     });
   }
@@ -202,6 +209,8 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
                   _buildDownloadsSection(),
                   const SizedBox(height: 24),
                   if (_keyboardShortcutsSupported) ...[_buildKeyboardShortcutsSection(), const SizedBox(height: 24)],
+                  _buildCompanionRemoteSection(),
+                  const SizedBox(height: 24),
                   _buildAdvancedSection(),
                   const SizedBox(height: 24),
                   if (UpdateService.isUpdateCheckEnabled) ...[_buildUpdateSection(), const SizedBox(height: 24)],
@@ -353,6 +362,22 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
                 value: settingsProvider.showUnwatchedCount,
                 onChanged: (value) async {
                   await settingsProvider.setShowUnwatchedCount(value);
+                },
+              );
+            },
+          ),
+          Consumer<UserProfileProvider>(
+            builder: (context, userProfileProvider, child) {
+              if (!userProfileProvider.hasMultipleUsers) return const SizedBox.shrink();
+              return SwitchListTile(
+                focusNode: _focusTracker.get(_kRequireProfileSelectionOnOpen),
+                secondary: const AppIcon(Symbols.person_rounded, fill: 1),
+                title: Text(t.settings.requireProfileSelectionOnOpen),
+                subtitle: Text(t.settings.requireProfileSelectionOnOpenDescription),
+                value: _requireProfileSelectionOnOpen,
+                onChanged: (value) async {
+                  setState(() => _requireProfileSelectionOnOpen = value);
+                  await _settingsService.setRequireProfileSelectionOnOpen(value);
                 },
               );
             },
@@ -753,6 +778,51 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCompanionRemoteSection() {
+    return Consumer<CompanionRemoteProvider>(
+      builder: (context, companionRemote, child) {
+        return Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  t.companionRemote.title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+              if (PlatformDetector.isDesktop(context))
+                ListTile(
+                  leading: const AppIcon(Symbols.phone_android_rounded, fill: 1),
+                  title: Text(t.companionRemote.hostRemoteSession),
+                  subtitle: companionRemote.isConnected
+                      ? Text(t.companionRemote.connectedTo(name: companionRemote.connectedDevice?.name ?? ''))
+                      : Text(t.companionRemote.controlThisDevice),
+                  trailing: companionRemote.isConnected
+                      ? const AppIcon(Symbols.check_circle_rounded, fill: 1, color: Colors.green)
+                      : const AppIcon(Symbols.chevron_right_rounded, fill: 1),
+                  onTap: () => RemoteSessionDialog.show(context),
+                )
+              else
+                ListTile(
+                  leading: const AppIcon(Symbols.phone_android_rounded, fill: 1),
+                  title: Text(t.companionRemote.remoteControl),
+                  subtitle: companionRemote.isConnected
+                      ? Text(t.companionRemote.connectedTo(name: companionRemote.connectedDevice?.name ?? ''))
+                      : Text(t.companionRemote.controlDesktop),
+                  trailing: const AppIcon(Symbols.chevron_right_rounded, fill: 1),
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const MobileRemoteScreen()));
+                  },
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 

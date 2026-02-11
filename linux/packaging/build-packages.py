@@ -8,8 +8,9 @@ from pathlib import Path
 # Paths
 SCRIPT_DIR = Path(__file__).parent.resolve()
 PROJECT_ROOT = SCRIPT_DIR.parent.parent
-BUILD_DIR = PROJECT_ROOT / "build/linux/x64/release/bundle"
+BUILD_DIR = Path(os.environ["BUILD_DIR"]) if "BUILD_DIR" in os.environ else PROJECT_ROOT / "build/linux/x64/release/bundle"
 OUTPUT_DIR = Path(os.environ.get("OUTPUT_DIR", PROJECT_ROOT))
+ARCH_SUFFIX = os.environ.get("ARCH_SUFFIX", "x64")
 
 # Package metadata
 METADATA = {
@@ -24,11 +25,16 @@ METADATA = {
 # Icon sizes to generate
 ICON_SIZES = [16, 32, 48, 64, 128, 256, 512]
 
+# Architecture mappings per package format
+ARCH_MAP = {
+    "x64": {"deb": "amd64", "rpm": "x86_64", "pacman": "x86_64"},
+    "arm64": {"deb": "arm64", "rpm": "aarch64", "pacman": "aarch64"},
+}
+
 # Distro-specific configuration
 DISTROS = {
     "deb": {
         "type": "deb",
-        "arch": "amd64",
         "category": "video",
         "ext": "deb",
         "compression": ["--deb-compression", "xz", "--deb-priority", "optional"],
@@ -36,14 +42,12 @@ DISTROS = {
             "libgtk-3-0",
             "libmpv2 | libmpv1",
             "libepoxy0",
-            "libsdl3-0",
             "libasound2",
             "libglib2.0-0",
         ],
     },
     "rpm": {
         "type": "rpm",
-        "arch": "x86_64",
         "category": "Multimedia",
         "ext": "rpm",
         "compression": ["--rpm-compression", "xzmt"],
@@ -51,14 +55,12 @@ DISTROS = {
             "gtk3",
             "mpv-libs",
             "libepoxy",
-            "SDL3",
             "alsa-lib",
             "glib2",
         ],
     },
     "pacman": {
         "type": "pacman",
-        "arch": "x86_64",
         "category": None,
         "ext": "pkg.tar.zst",
         "compression": ["--pacman-compression", "zstd"],
@@ -66,7 +68,6 @@ DISTROS = {
             "gtk3",
             "mpv",
             "libepoxy",
-            "sdl3",
             "alsa-lib",
             "glib2",
         ],
@@ -123,9 +124,10 @@ def get_file_mappings() -> list[str]:
 def build_package(distro: str, version: str):
     """Build a package for the specified distro."""
     config = DISTROS[distro]
-    output_file = OUTPUT_DIR / f"{METADATA['name']}-linux.{config['ext']}"
+    arch = ARCH_MAP[ARCH_SUFFIX][distro]
+    output_file = OUTPUT_DIR / f"{METADATA['name']}-linux-{ARCH_SUFFIX}.{config['ext']}"
 
-    print(f"Building .{config['ext']} package...")
+    print(f"Building .{config['ext']} package ({arch})...")
 
     cmd = [
         "fpm",
@@ -139,7 +141,7 @@ def build_package(distro: str, version: str):
         "--maintainer", METADATA["maintainer"],
         "--url", METADATA["url"],
         "--description", METADATA["description"],
-        "--architecture", config["arch"],
+        "--architecture", arch,
     ]
 
     if config["category"]:
@@ -166,11 +168,11 @@ def main():
     # Verify build exists
     if not BUILD_DIR.exists():
         print(f"Error: Build directory not found at {BUILD_DIR}")
-        print("Please run 'flutter build linux --release' first")
+        print("Please run 'flutter build linux --release' first or set BUILD_DIR")
         exit(1)
 
     version = get_version()
-    print(f"Building packages for {METADATA['name']} version {version}")
+    print(f"Building {ARCH_SUFFIX} packages for {METADATA['name']} version {version}")
 
     # Make scripts executable
     for script in ["plezy.sh", "after-install.sh", "after-remove.sh"]:
@@ -184,7 +186,7 @@ def main():
         build_package(distro, version)
 
     print("\nAll packages built successfully!")
-    for f in OUTPUT_DIR.glob(f"{METADATA['name']}-linux.*"):
+    for f in sorted(OUTPUT_DIR.glob(f"{METADATA['name']}-linux-{ARCH_SUFFIX}.*")):
         print(f"  {f}")
 
 

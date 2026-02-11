@@ -140,7 +140,7 @@ class MediaContextMenuState extends State<MediaContextMenu> {
     // Special actions for collections and playlists
     if (isCollection || isPlaylist) {
       // Play
-      menuActions.add(_MenuAction(value: 'play', icon: Symbols.play_arrow_rounded, label: t.discover.play));
+      menuActions.add(_MenuAction(value: 'play', icon: Symbols.play_arrow_rounded, label: t.common.play));
 
       // Shuffle
       menuActions.add(_MenuAction(value: 'shuffle', icon: Symbols.shuffle_rounded, label: t.mediaMenu.shufflePlay));
@@ -278,8 +278,6 @@ class MediaContextMenuState extends State<MediaContextMenu> {
           focusFirstItem: openedFromKeyboard,
         ),
       );
-      // Suppress BACK key-up to prevent it from propagating to the parent screen
-      BackKeyUpSuppressor.suppressBackUntilKeyUp();
     } else {
       // Show custom focusable popup menu on larger screens
       // Use stored tap position or fallback to widget position
@@ -299,8 +297,6 @@ class MediaContextMenuState extends State<MediaContextMenu> {
         builder: (dialogContext) =>
             _FocusablePopupMenu(actions: menuActions, position: position, focusFirstItem: openedFromKeyboard),
       );
-      // Suppress BACK key-up to prevent it from propagating to the parent screen
-      BackKeyUpSuppressor.suppressBackUntilKeyUp();
     }
 
     try {
@@ -518,7 +514,6 @@ class MediaContextMenuState extends State<MediaContextMenu> {
           backgroundColor: Colors.transparent,
           builder: (context) => FileInfoBottomSheet(fileInfo: fileInfo, title: metadata.title),
         );
-        BackKeyUpSuppressor.suppressBackUntilKeyUp();
       } else if (context.mounted) {
         showErrorSnackBar(context, t.messages.fileInfoNotAvailable);
       }
@@ -585,7 +580,6 @@ class MediaContextMenuState extends State<MediaContextMenu> {
           ),
         ),
       );
-      BackKeyUpSuppressor.suppressBackUntilKeyUp();
     } else {
       // Show popup menu on desktop
       selected = await showMenu<String>(
@@ -606,7 +600,6 @@ class MediaContextMenuState extends State<MediaContextMenu> {
           );
         }).toList(),
       );
-      BackKeyUpSuppressor.suppressBackUntilKeyUp();
     }
 
     // Handle the submenu selection
@@ -635,7 +628,6 @@ class MediaContextMenuState extends State<MediaContextMenu> {
         context: context,
         builder: (context) => _PlaylistSelectionDialog(playlists: playlists),
       );
-      BackKeyUpSuppressor.suppressBackUntilKeyUp();
 
       if (result == null || !context.mounted) return;
 
@@ -654,7 +646,6 @@ class MediaContextMenuState extends State<MediaContextMenu> {
           labelText: t.playlists.playlistName,
           hintText: t.playlists.enterPlaylistName,
         );
-        BackKeyUpSuppressor.suppressBackUntilKeyUp();
 
         if (playlistName == null || playlistName.isEmpty || !context.mounted) {
           return;
@@ -773,7 +764,6 @@ class MediaContextMenuState extends State<MediaContextMenu> {
         context: context,
         builder: (context) => _CollectionSelectionDialog(collections: collections),
       );
-      BackKeyUpSuppressor.suppressBackUntilKeyUp();
 
       if (result == null || !context.mounted) return;
 
@@ -791,7 +781,6 @@ class MediaContextMenuState extends State<MediaContextMenu> {
           labelText: t.collections.collectionName,
           hintText: t.collections.enterCollectionName,
         );
-        BackKeyUpSuppressor.suppressBackUntilKeyUp();
 
         if (collectionName == null || collectionName.isEmpty || !context.mounted) {
           return;

@@ -22,6 +22,10 @@ import '../models/plex_media_info.dart';
 import '../providers/download_provider.dart';
 import '../providers/multi_server_provider.dart';
 import '../providers/playback_state_provider.dart';
+import '../models/companion_remote/remote_command_type.dart';
+import '../providers/companion_remote_provider.dart';
+import '../services/companion_remote/companion_remote_receiver.dart';
+import '../services/macos_window_service.dart';
 import '../services/discord_rpc_service.dart';
 import '../services/episode_navigation_service.dart';
 import '../services/media_controls_manager.dart';
@@ -37,11 +41,14 @@ import '../services/shader_service.dart';
 import '../providers/shader_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../utils/app_logger.dart';
+import '../utils/dialogs.dart';
+import '../utils/player_utils.dart';
 import '../utils/orientation_helper.dart';
 import '../utils/platform_detector.dart';
 import '../utils/provider_extensions.dart';
 import '../utils/language_codes.dart';
 import '../utils/snackbar_helper.dart';
+import '../utils/track_label_builder.dart' as tlb;
 import '../utils/plex_url_helper.dart';
 import '../utils/video_player_navigation.dart';
 import '../widgets/video_controls/video_controls.dart';
@@ -51,6 +58,7 @@ import '../focus/dpad_navigator.dart';
 import '../focus/key_event_utils.dart';
 import '../i18n/strings.g.dart';
 import '../watch_together/providers/watch_together_provider.dart';
+import '../watch_together/widgets/watch_together_overlay.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final PlexMetadata metadata;
@@ -131,6 +139,10 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
   // Watch Together provider reference (stored early to use in dispose)
   WatchTogetherProvider? _watchTogetherProvider;
 
+  // Companion remote state (stored early for use in dispose)
+  CompanionRemoteProvider? _companionRemoteProvider;
+  VoidCallback? _savedOnHome;
+
   /// Get the correct PlexClient for this metadata's server
   PlexClient _getClientForMetadata(BuildContext context) {
     return context.getClientForServer(widget.metadata.serverId!);
@@ -140,8 +152,9 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     final partId = _currentMediaInfo?.partId;
     if (partId == null || widget.isOffline) return null;
     final client = _getClientForMetadata(context);
-    return '${client.config.baseUrl}/library/parts/$partId/indexes/sd/${time.inMilliseconds}'
-        .withPlexToken(client.config.token);
+    return '${client.config.baseUrl}/library/parts/$partId/indexes/sd/${time.inMilliseconds}'.withPlexToken(
+      client.config.token,
+    );
   }
 
   final ValueNotifier<bool> _isBuffering = ValueNotifier<bool>(false); // Track if video is currently buffering
@@ -202,6 +215,9 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
 
     // Register app lifecycle observer
     WidgetsBinding.instance.addObserver(this);
+
+    // Wire companion remote playback callbacks
+    _setupCompanionRemoteCallbacks();
 
     // Initialize player asynchronously with buffer size from settings
     _initializePlayer();
@@ -416,6 +432,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
         '#${bgOpacity.toRadixString(16).padLeft(2, '0').toUpperCase()}$bgColor',
       );
       await player!.setProperty('sub-ass-override', 'no');
+      await player!.setProperty('sub-pos', settingsService.getSubtitlePosition().toString());
 
       // Platform-specific settings
       if (Platform.isIOS) {
@@ -936,6 +953,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
             borderColor: settingsService.getSubtitleBorderColor(),
             bgColor: settingsService.getSubtitleBackgroundColor(),
             bgOpacity: settingsService.getSubtitleBackgroundOpacity(),
+            subtitlePosition: settingsService.getSubtitlePosition(),
           );
         }
 
@@ -1203,6 +1221,160 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     navigateToVideoPlayer(context, metadata: metadata, usePushReplacement: true);
   }
 
+  void _setupCompanionRemoteCallbacks() {
+    final receiver = CompanionRemoteReceiver.instance;
+    receiver.onStop = () {
+      if (mounted) _handleBackButton();
+    };
+    receiver.onNextTrack = () {
+      if (mounted && _nextEpisode != null) _playNext();
+    };
+    receiver.onPreviousTrack = () {
+      if (mounted && _previousEpisode != null) _playPrevious();
+    };
+    receiver.onSeekForward = () async {
+      if (player == null) return;
+      final settings = await SettingsService.getInstance();
+      seekWithClamping(player!, Duration(seconds: settings.getSeekTimeSmall()));
+    };
+    receiver.onSeekBackward = () async {
+      if (player == null) return;
+      final settings = await SettingsService.getInstance();
+      seekWithClamping(player!, Duration(seconds: -settings.getSeekTimeSmall()));
+    };
+    receiver.onVolumeUp = () async {
+      if (player == null) return;
+      final settings = await SettingsService.getInstance();
+      final maxVol = settings.getMaxVolume().toDouble();
+      final newVolume = (player!.state.volume + 10).clamp(0.0, maxVol);
+      player!.setVolume(newVolume);
+      settings.setVolume(newVolume);
+    };
+    receiver.onVolumeDown = () async {
+      if (player == null) return;
+      final settings = await SettingsService.getInstance();
+      final maxVol = settings.getMaxVolume().toDouble();
+      final newVolume = (player!.state.volume - 10).clamp(0.0, maxVol);
+      player!.setVolume(newVolume);
+      settings.setVolume(newVolume);
+    };
+    receiver.onVolumeMute = () async {
+      if (player == null) return;
+      final settings = await SettingsService.getInstance();
+      final newVolume = player!.state.volume > 0 ? 0.0 : 100.0;
+      player!.setVolume(newVolume);
+      settings.setVolume(newVolume);
+    };
+    receiver.onSubtitles = _cycleSubtitleTrack;
+    receiver.onAudioTracks = _cycleAudioTrack;
+    receiver.onFullscreen = _toggleFullscreen;
+
+    // Override home to exit the player first (main screen handler runs after pop)
+    _savedOnHome = receiver.onHome;
+    receiver.onHome = () {
+      if (mounted) _handleBackButton();
+    };
+
+    // Store provider reference for use in dispose and notify remote
+    try {
+      _companionRemoteProvider = context.read<CompanionRemoteProvider>();
+      _companionRemoteProvider!.sendCommand(
+        RemoteCommandType.syncState,
+        data: {'playerActive': true},
+      );
+    } catch (_) {}
+  }
+
+  void _cleanupCompanionRemoteCallbacks() {
+    final receiver = CompanionRemoteReceiver.instance;
+    receiver.onStop = null;
+    receiver.onNextTrack = null;
+    receiver.onPreviousTrack = null;
+    receiver.onSeekForward = null;
+    receiver.onSeekBackward = null;
+    receiver.onVolumeUp = null;
+    receiver.onVolumeDown = null;
+    receiver.onVolumeMute = null;
+    receiver.onSubtitles = null;
+    receiver.onAudioTracks = null;
+    receiver.onFullscreen = null;
+    receiver.onHome = _savedOnHome;
+    _savedOnHome = null;
+
+    // Notify remote that player is no longer active
+    _companionRemoteProvider?.sendCommand(
+      RemoteCommandType.syncState,
+      data: {'playerActive': false},
+    );
+    _companionRemoteProvider = null;
+  }
+
+  void _cycleSubtitleTrack() {
+    if (player == null) return;
+    final tracks = player!.state.tracks.subtitle.where((t) => t.id != 'auto').toList();
+    if (tracks.isEmpty) return;
+
+    final current = player!.state.track.subtitle;
+    // tracks includes 'no' (off). Find current index and advance.
+    final currentIndex = tracks.indexWhere((t) => t.id == current?.id);
+    final nextIndex = (currentIndex + 1) % tracks.length;
+    final next = tracks[nextIndex];
+    player!.selectSubtitleTrack(next);
+    _onSubtitleTrackChanged(next);
+
+    if (mounted) {
+      final label = next.id == 'no'
+          ? 'Subtitles: Off'
+          : 'Subtitles: ${tlb.TrackLabelBuilder.buildSubtitleLabel(title: next.title, language: next.language, codec: next.codec, index: nextIndex)}';
+      showAppSnackBar(context, label, duration: const Duration(seconds: 1));
+    }
+  }
+
+  void _cycleAudioTrack() {
+    if (player == null) return;
+    final tracks = player!.state.tracks.audio.where((t) => t.id != 'auto' && t.id != 'no').toList();
+    if (tracks.length <= 1) return;
+
+    final current = player!.state.track.audio;
+    final currentIndex = tracks.indexWhere((t) => t.id == current?.id);
+    final nextIndex = (currentIndex + 1) % tracks.length;
+    final next = tracks[nextIndex];
+    player!.selectAudioTrack(next);
+    _onAudioTrackChanged(next);
+
+    if (mounted) {
+      final label = 'Audio: ${tlb.TrackLabelBuilder.buildAudioLabel(title: next.title, language: next.language, codec: next.codec, channelsCount: next.channelsCount, index: nextIndex)}';
+      showAppSnackBar(context, label, duration: const Duration(seconds: 1));
+    }
+  }
+
+  Future<void> _toggleFullscreen() async {
+    if (PlatformDetector.isMobile(context)) return;
+    final isCurrentlyFullscreen = await windowManager.isFullScreen();
+    if (Platform.isMacOS) {
+      if (isCurrentlyFullscreen) {
+        await MacOSWindowService.exitFullscreen();
+      } else {
+        await MacOSWindowService.enterFullscreen();
+      }
+    } else {
+      await windowManager.setFullScreen(!isCurrentlyFullscreen);
+    }
+  }
+
+  /// Exit fullscreen before leaving the player (Windows/Linux only).
+  /// macOS is excluded because we can't distinguish native fullscreen
+  /// from maximized state, so we leave the window state unchanged.
+  Future<void> _exitFullscreenIfNeeded() async {
+    if (Platform.isWindows || Platform.isLinux) {
+      final isFullscreen = await windowManager.isFullScreen();
+      if (isFullscreen) {
+        await windowManager.setFullScreen(false);
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+    }
+  }
+
   /// Handle back button press
   /// For non-host participants in Watch Together, shows leave session confirmation
   Future<void> _handleBackButton() async {
@@ -1211,64 +1383,31 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     try {
       // For non-host participants, show leave session confirmation
       if (_watchTogetherProvider != null && _watchTogetherProvider!.isInSession && !_watchTogetherProvider!.isHost) {
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('Leave Session?'),
-            content: const Text('You will be removed from the session.'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                style: FilledButton.styleFrom(backgroundColor: Theme.of(dialogContext).colorScheme.error),
-                child: const Text('Leave'),
-              ),
-            ],
-          ),
+        final confirmed = await showConfirmDialog(
+          context,
+          title: 'Leave Session?',
+          message: 'You will be removed from the session.',
+          confirmText: 'Leave',
+          isDestructive: true,
         );
 
-        if (confirmed == true && mounted) {
+        if (confirmed && mounted) {
           await _watchTogetherProvider!.leaveSession();
           if (mounted) {
-            // Exit fullscreen before leaving player (Windows/Linux only)
-            if (Platform.isWindows || Platform.isLinux) {
-              final isFullscreen = await windowManager.isFullScreen();
-              if (isFullscreen) {
-                await windowManager.setFullScreen(false);
-                // Wait for a frame to allow window manager to process the fullscreen exit
-                await Future.delayed(const Duration(milliseconds: 100));
-                if (!mounted) return;
-              }
-            }
+            await _exitFullscreenIfNeeded();
             if (!mounted) return;
             _isExiting.value = true;
-            BackKeyUpSuppressor.suppressBackUntilKeyUp();
             Navigator.of(context).pop(true);
           }
         }
         return;
       }
 
-      // Exit fullscreen before leaving player (Windows/Linux only)
-      if (Platform.isWindows || Platform.isLinux) {
-        final isFullscreen = await windowManager.isFullScreen();
-        if (isFullscreen) {
-          await windowManager.setFullScreen(false);
-          // Wait for a frame to allow window manager to process the fullscreen exit
-          await Future.delayed(const Duration(milliseconds: 100));
-          if (!mounted) return;
-        }
-      }
+      await _exitFullscreenIfNeeded();
 
       // Default behavior for hosts or non-session users
       if (!mounted) return;
       _isExiting.value = true;
-      // Suppress stray BACK KeyUp on the previous route: on Android TV the
-      // system back gesture pops the route around KeyDown, so the KeyUp arrives
-      // at the previous route and would be misinterpreted as a new BACK press.
-      // markClosedViaBackKey() (set by handleBackKeyAction for key-triggered
-      // pops) makes this a no-op, so it only activates for system-back pops.
-      BackKeyUpSuppressor.suppressBackUntilKeyUp();
       Navigator.of(context).pop(true);
     } finally {
       _isHandlingBack = false;
@@ -1279,6 +1418,9 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
   void dispose() {
     // Unregister app lifecycle observer
     WidgetsBinding.instance.removeObserver(this);
+
+    // Clean up companion remote playback callbacks
+    _cleanupCompanionRemoteCallbacks();
 
     // Notify Watch Together guests that host is exiting the player
     // Use stored reference since context.read() may fail in dispose
@@ -1925,13 +2067,12 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
                       }
                     });
 
-                    // Compute canControl from Watch Together provider
+                    // Compute canControl from Watch Together provider (reactive)
                     bool canControl = true;
                     try {
-                      final watchTogether = this.context.read<WatchTogetherProvider>();
-                      if (watchTogether.isInSession) {
-                        canControl = watchTogether.canControl();
-                      }
+                      canControl = context.select<WatchTogetherProvider, bool>(
+                        (wt) => wt.isInSession ? wt.canControl() : true,
+                      );
                     } catch (e) {
                       // Watch Together not available, default to can control
                     }
@@ -2096,7 +2237,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
                                           side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
                                           padding: const EdgeInsets.symmetric(vertical: 12),
                                         ),
-                                        child: Text(t.dialog.cancel),
+                                        child: Text(t.common.cancel),
                                       ),
                                     ),
                                   ),
@@ -2188,6 +2329,37 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
                   );
                 },
               ),
+              // Watch Together: reconnecting to host overlay
+              Consumer<WatchTogetherProvider>(
+                builder: (context, provider, child) {
+                  if (!provider.isWaitingForHostReconnect) return const SizedBox.shrink();
+                  return Positioned(
+                    bottom: 120,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(t.watchTogether.reconnectingToHost, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              // Watch Together: participant join/leave notifications
+              const ParticipantNotificationOverlay(),
               // Black overlay during exit (no spinner - just covers transparency)
               ValueListenableBuilder<bool>(
                 valueListenable: _isExiting,

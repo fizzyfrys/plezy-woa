@@ -29,6 +29,10 @@ class WatchTogetherProvider with ChangeNotifier {
   bool _isSyncing = false;
   String _displayName = 'User';
 
+  // Host reconnect grace period
+  Timer? _hostReconnectTimer;
+  bool _isWaitingForHostReconnect = false;
+
   /// Generate a random display name for this session
   static String _generateDisplayName() {
     const adjectives = ['Happy', 'Sleepy', 'Sunny', 'Cozy', 'Chill', 'Swift', 'Brave', 'Calm', 'Jolly', 'Lucky'];
@@ -65,6 +69,11 @@ class WatchTogetherProvider with ChangeNotifier {
   ControlMode get controlMode => _session?.controlMode ?? ControlMode.hostOnly;
   String? get sessionId => _session?.sessionId;
   WatchTogetherSyncManager? get syncManager => _syncManager;
+  bool get isWaitingForHostReconnect => _isWaitingForHostReconnect;
+
+  // Participant join/leave event stream
+  final StreamController<ParticipantEvent> _participantEventController = StreamController<ParticipantEvent>.broadcast();
+  Stream<ParticipantEvent> get participantEvents => _participantEventController.stream;
 
   // Current media getters
   String? get currentMediaRatingKey => _session?.mediaRatingKey;
@@ -207,6 +216,9 @@ class WatchTogetherProvider with ChangeNotifier {
     _messageSubscription = null;
     _errorSubscription = null;
 
+    // Cancel host reconnect grace period
+    _cancelHostReconnectGracePeriod();
+
     // Clean up services
     _syncManager?.dispose();
     _syncManager = null;
@@ -248,19 +260,29 @@ class WatchTogetherProvider with ChangeNotifier {
   void _setupPeerServiceListeners() {
     _peerConnectedSubscription = _peerService!.onPeerConnected.listen((peerId) {
       appLogger.d('WatchTogether: Peer connected: $peerId');
+
+      // If host reconnected during grace period, cancel the timer
+      if (!isHost && peerId == _session?.hostPeerId && _isWaitingForHostReconnect) {
+        _cancelHostReconnectGracePeriod();
+      }
+
       // Peer will announce themselves with a join message
       notifyListeners();
     });
 
     _peerDisconnectedSubscription = _peerService!.onPeerDisconnected.listen((peerId) {
       appLogger.d('WatchTogether: Peer disconnected: $peerId');
+
+      // Capture display name before removal for notification
+      final disconnectedName = _participants.where((p) => p.peerId == peerId).map((p) => p.displayName).firstOrNull;
+
       _participants.removeWhere((p) => p.peerId == peerId);
 
-      // If host disconnected, end session for guests
+      // If host disconnected, start grace period for reconnection
       if (!isHost && peerId == _session?.hostPeerId) {
-        _session = _session?.copyWith(state: SessionState.error, errorMessage: 'Host left the session');
-        // Ensure guests exit the player if host disappears
-        onHostExitedPlayer?.call();
+        _startHostReconnectGracePeriod();
+      } else if (disconnectedName != null) {
+        _participantEventController.add(ParticipantEvent(displayName: disconnectedName, type: ParticipantEventType.left));
       }
 
       notifyListeners();
@@ -300,6 +322,9 @@ class WatchTogetherProvider with ChangeNotifier {
             _participants.add(
               Participant(peerId: message.peerId!, displayName: message.displayName!, isHost: message.isHost ?? false),
             );
+            _participantEventController.add(
+              ParticipantEvent(displayName: message.displayName!, type: ParticipantEventType.joined),
+            );
           }
 
           // If we're the host, send our join info back so the new peer
@@ -319,7 +344,11 @@ class WatchTogetherProvider with ChangeNotifier {
 
       case SyncMessageType.leave:
         if (message.peerId != null) {
+          final leavingName = _participants.where((p) => p.peerId == message.peerId).map((p) => p.displayName).firstOrNull;
           _participants.removeWhere((p) => p.peerId == message.peerId);
+          if (leavingName != null) {
+            _participantEventController.add(ParticipantEvent(displayName: leavingName, type: ParticipantEventType.left));
+          }
           notifyListeners();
         }
         break;
@@ -356,6 +385,10 @@ class WatchTogetherProvider with ChangeNotifier {
         _handleSessionConfig(message);
         break;
 
+      case SyncMessageType.requestSessionConfig:
+        // Handled at sync manager level (host responds with config)
+        break;
+
       default:
         break;
     }
@@ -371,6 +404,18 @@ class WatchTogetherProvider with ChangeNotifier {
       _session = _session!.copyWith(controlMode: message.controlMode);
       _syncManager?.updateSession(_session!); // Update sync manager if it exists
       notifyListeners();
+    }
+
+    // If config contains media info that differs from our current state,
+    // trigger a media switch so the guest navigates to the correct content.
+    // This handles the case where a guest missed a mediaSwitch broadcast
+    // (e.g., host switched episodes while guest was popping out of the player).
+    if (message.ratingKey != null &&
+        message.serverId != null &&
+        message.mediaTitle != null &&
+        message.ratingKey != _session?.mediaRatingKey) {
+      appLogger.d('WatchTogether: Session config contains different media, triggering switch');
+      _handleMediaSwitch(message);
     }
   }
 
@@ -431,7 +476,17 @@ class WatchTogetherProvider with ChangeNotifier {
 
     appLogger.d('WatchTogether: Received media switch: ${message.mediaTitle}');
 
-    // Update local session state
+    // Dispatch callback BEFORE updating session state.
+    // If the callback fails silently (e.g., player disposed mid-animation),
+    // the ratingKey stays unchanged so the next positionSync or re-sent
+    // message can retry instead of being treated as a duplicate.
+    if (onPlayerMediaSwitched != null) {
+      onPlayerMediaSwitched!(message.ratingKey!, message.serverId!, message.mediaTitle!);
+    } else {
+      onMediaSwitched?.call(message.ratingKey!, message.serverId!, message.mediaTitle!);
+    }
+
+    // Update local session state after successful dispatch
     _session = _session?.copyWith(
       mediaRatingKey: message.ratingKey,
       mediaServerId: message.serverId,
@@ -439,15 +494,6 @@ class WatchTogetherProvider with ChangeNotifier {
     );
 
     notifyListeners();
-
-    // If player handler is set (VideoPlayerScreen is active), use that for proper navigation context
-    if (onPlayerMediaSwitched != null) {
-      onPlayerMediaSwitched!(message.ratingKey!, message.serverId!, message.mediaTitle!);
-      return;
-    }
-
-    // Otherwise, trigger app-level navigation callback (MainScreen handles it)
-    onMediaSwitched?.call(message.ratingKey!, message.serverId!, message.mediaTitle!);
   }
 
   /// Notify guests that host is exiting the video player
@@ -469,6 +515,24 @@ class WatchTogetherProvider with ChangeNotifier {
 
     appLogger.d('WatchTogether: Host exited player, callback set: ${onHostExitedPlayer != null}');
 
+    // Clear media info so the next mediaSwitch (even same ratingKey) isn't
+    // treated as a duplicate by the guard in _handleMediaSwitch.
+    // copyWith uses ?? so it can't set fields to null — construct directly.
+    _session = WatchSession(
+      sessionId: _session!.sessionId,
+      role: _session!.role,
+      controlMode: _session!.controlMode,
+      state: _session!.state,
+      participants: _session!.participants,
+      errorMessage: _session!.errorMessage,
+      hostPeerId: _session!.hostPeerId,
+    );
+
+    // Clear the player callback BEFORE popping so that any mediaSwitch message
+    // arriving during the pop animation routes to MainScreen's handler instead
+    // of the dying VideoPlayerScreen.
+    onPlayerMediaSwitched = null;
+
     // Trigger callback for the app to navigate guest out of player
     if (onHostExitedPlayer != null) {
       onHostExitedPlayer!.call();
@@ -477,9 +541,51 @@ class WatchTogetherProvider with ChangeNotifier {
     }
   }
 
+  /// Start a grace period for host reconnection (guest only)
+  void _startHostReconnectGracePeriod() {
+    _cancelHostReconnectGracePeriod();
+    _isWaitingForHostReconnect = true;
+    appLogger.d('WatchTogether: Host disconnected, waiting 15s for reconnection');
+    notifyListeners();
+
+    _hostReconnectTimer = Timer(const Duration(seconds: 15), () {
+      if (_isWaitingForHostReconnect) {
+        appLogger.d('WatchTogether: Host reconnect grace period expired');
+        _isWaitingForHostReconnect = false;
+        _session = _session?.copyWith(state: SessionState.error, errorMessage: 'Host left the session');
+        onHostExitedPlayer?.call();
+        notifyListeners();
+      }
+    });
+  }
+
+  /// Cancel host reconnect grace period
+  void _cancelHostReconnectGracePeriod() {
+    _hostReconnectTimer?.cancel();
+    _hostReconnectTimer = null;
+    if (_isWaitingForHostReconnect) {
+      _isWaitingForHostReconnect = false;
+      appLogger.d('WatchTogether: Host reconnected, grace period cancelled');
+      notifyListeners();
+    }
+  }
+
   @override
   void dispose() {
+    _cancelHostReconnectGracePeriod();
+    _participantEventController.close();
     leaveSession();
     super.dispose();
   }
+}
+
+/// Type of participant event
+enum ParticipantEventType { joined, left }
+
+/// Event emitted when a participant joins or leaves
+class ParticipantEvent {
+  final String displayName;
+  final ParticipantEventType type;
+
+  const ParticipantEvent({required this.displayName, required this.type});
 }

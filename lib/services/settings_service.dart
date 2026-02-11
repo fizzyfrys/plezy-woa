@@ -46,6 +46,7 @@ class SettingsService extends BaseSharedPreferencesService {
   static const String _keySubtitleBorderColor = 'subtitle_border_color';
   static const String _keySubtitleBackgroundColor = 'subtitle_background_color';
   static const String _keySubtitleBackgroundOpacity = 'subtitle_background_opacity';
+  static const String _keySubtitlePosition = 'subtitle_position';
   static const String _keyAppLocale = 'app_locale';
   static const String _keyRememberTrackSelections = 'remember_track_selections';
   static const String _keyClickVideoTogglesPlayback = 'click_video_toggles_playback';
@@ -68,6 +69,7 @@ class SettingsService extends BaseSharedPreferencesService {
   static const String _keyAlwaysKeepSidebarOpen = 'always_keep_sidebar_open';
   static const String _keyShowUnwatchedCount = 'show_unwatched_count';
   static const String _keyGlobalShaderPreset = 'global_shader_preset';
+  static const String _keyRequireProfileSelectionOnOpen = 'require_profile_selection_on_open';
 
   SettingsService._();
 
@@ -344,6 +346,15 @@ class SettingsService extends BaseSharedPreferencesService {
     return prefs.getInt(_keySubtitleBackgroundOpacity) ?? 0;
   }
 
+  // Subtitle Position (0 = top, 100 = bottom, default 100)
+  Future<void> setSubtitlePosition(int position) async {
+    await prefs.setInt(_keySubtitlePosition, position.clamp(0, 100));
+  }
+
+  int getSubtitlePosition() {
+    return prefs.getInt(_keySubtitlePosition) ?? 100; // Default: bottom
+  }
+
   // Keyboard Shortcuts (Legacy String-based)
   Map<String, String> getDefaultKeyboardShortcuts() {
     return {
@@ -392,6 +403,7 @@ class SettingsService extends BaseSharedPreferencesService {
       'sub_seek_next': HotKey(key: PhysicalKeyboardKey.arrowRight, modifiers: [HotKeyModifier.control]),
       'sub_seek_prev': HotKey(key: PhysicalKeyboardKey.arrowLeft, modifiers: [HotKeyModifier.control]),
       'shader_toggle': HotKey(key: PhysicalKeyboardKey.keyG),
+      'skip_marker': HotKey(key: PhysicalKeyboardKey.enter),
     };
   }
 
@@ -798,7 +810,7 @@ class SettingsService extends BaseSharedPreferencesService {
 
   AppLocale getAppLocale() {
     final localeString = prefs.getString(_keyAppLocale);
-    if (localeString == null) return AppLocale.en; // Default to English
+    if (localeString == null) return AppLocaleUtils.findDeviceLocale();
 
     return AppLocale.values.firstWhere((locale) => locale.languageCode == localeString, orElse: () => AppLocale.en);
   }
@@ -1027,6 +1039,15 @@ class SettingsService extends BaseSharedPreferencesService {
     return prefs.getString(_keyGlobalShaderPreset) ?? 'none'; // Default: no shader
   }
 
+  // Require Profile Selection on App Open
+  Future<void> setRequireProfileSelectionOnOpen(bool enabled) async {
+    await prefs.setBool(_keyRequireProfileSelectionOnOpen, enabled);
+  }
+
+  bool getRequireProfileSelectionOnOpen() {
+    return prefs.getBool(_keyRequireProfileSelectionOnOpen) ?? false;
+  }
+
   // Reset all settings to defaults
   Future<void> resetAllSettings() async {
     await Future.wait([
@@ -1058,6 +1079,7 @@ class SettingsService extends BaseSharedPreferencesService {
       prefs.remove(_keySubtitleBorderColor),
       prefs.remove(_keySubtitleBackgroundColor),
       prefs.remove(_keySubtitleBackgroundOpacity),
+      prefs.remove(_keySubtitlePosition),
       prefs.remove(_keyAppLocale),
       prefs.remove(_keyRememberTrackSelections),
       prefs.remove(_keyCustomDownloadPath),
@@ -1075,6 +1097,7 @@ class SettingsService extends BaseSharedPreferencesService {
       prefs.remove(_keyAlwaysKeepSidebarOpen),
       prefs.remove(_keyShowUnwatchedCount),
       prefs.remove(_keyGlobalShaderPreset),
+      prefs.remove(_keyRequireProfileSelectionOnOpen),
     ]);
   }
 

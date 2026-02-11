@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 
 import '../../i18n/strings.g.dart';
+import '../../utils/dialogs.dart';
 import '../../utils/snackbar_helper.dart';
 import '../models/watch_session.dart';
 import '../providers/watch_together_provider.dart';
@@ -259,28 +262,100 @@ class _SessionMenuSheet extends StatelessWidget {
     showSuccessSnackBar(context, t.watchTogether.sessionCodeCopied);
   }
 
-  void _confirmLeave(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(provider.isHost ? t.watchTogether.endSessionQuestion : t.watchTogether.leaveSessionQuestion),
-        content: Text(
-          provider.isHost ? t.watchTogether.endSessionConfirmOverlay : t.watchTogether.leaveSessionConfirmOverlay,
+  void _confirmLeave(BuildContext context) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: provider.isHost ? t.watchTogether.endSessionQuestion : t.watchTogether.leaveSessionQuestion,
+      message: provider.isHost ? t.watchTogether.endSessionConfirmOverlay : t.watchTogether.leaveSessionConfirmOverlay,
+      confirmText: provider.isHost ? t.watchTogether.endSession : t.watchTogether.leave,
+      isDestructive: true,
+    );
+
+    if (confirmed) {
+      provider.leaveSession();
+      onLeaveSession?.call();
+    }
+  }
+}
+
+/// Auto-dismissing toast for participant join/leave events
+class ParticipantNotificationOverlay extends StatefulWidget {
+  const ParticipantNotificationOverlay({super.key});
+
+  @override
+  State<ParticipantNotificationOverlay> createState() => _ParticipantNotificationOverlayState();
+}
+
+class _ParticipantNotificationOverlayState extends State<ParticipantNotificationOverlay> {
+  StreamSubscription<ParticipantEvent>? _subscription;
+  final List<_NotificationEntry> _notifications = [];
+  int _nextId = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _subscription?.cancel();
+    try {
+      final provider = context.read<WatchTogetherProvider>();
+      _subscription = provider.participantEvents.listen(_onEvent);
+    } catch (_) {}
+  }
+
+  void _onEvent(ParticipantEvent event) {
+    if (!mounted) return;
+    final id = _nextId++;
+    setState(() {
+      _notifications.add(_NotificationEntry(id: id, event: event));
+    });
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _notifications.removeWhere((n) => n.id == id);
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_notifications.isEmpty) return const SizedBox.shrink();
+
+    return Positioned(
+      top: 60,
+      left: 0,
+      right: 0,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: _notifications.map((n) {
+            final text = n.event.type == ParticipantEventType.joined
+                ? t.watchTogether.participantJoined(name: n.event.displayName)
+                : t.watchTogether.participantLeft(name: n.event.displayName);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 12)),
+              ),
+            );
+          }).toList(),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(t.common.cancel)),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              provider.leaveSession();
-              onLeaveSession?.call();
-            },
-            child: Text(provider.isHost ? t.watchTogether.endSession : t.watchTogether.leave),
-          ),
-        ],
       ),
     );
   }
+}
+
+class _NotificationEntry {
+  final int id;
+  final ParticipantEvent event;
+  const _NotificationEntry({required this.id, required this.event});
 }
 
 /// Compact sync indicator for showing during drift correction

@@ -714,7 +714,16 @@ class ExoPlayerCore(private val activity: Activity) : Player.Listener {
     }
 
     fun setPlaybackSpeed(speed: Float) {
-        exoPlayer?.setPlaybackSpeed(speed.coerceIn(0.25f, 4f))
+        val clampedSpeed = speed.coerceIn(0.25f, 4f)
+        exoPlayer?.setPlaybackSpeed(clampedSpeed)
+
+        // Disable tunneling when speed != 1.0 — tunneled playback bypasses
+        // ExoPlayer's audio processors, silently ignoring speed changes.
+        trackSelector?.setParameters(
+            trackSelector!!.buildUponParameters()
+                .setTunnelingEnabled(clampedSpeed == 1f)
+        )
+
         delegate?.onPropertyChange("speed", speed.toDouble())
     }
 
@@ -849,7 +858,8 @@ class ExoPlayerCore(private val activity: Activity) : Player.Listener {
         borderSize: Float,
         borderColor: String,
         bgColor: String,
-        bgOpacity: Int
+        bgOpacity: Int,
+        subtitlePosition: Int = 100
     ) {
         activity.runOnUiThread {
             // 1. Non-ASS subtitles: CaptionStyleCompat on SubtitleView
@@ -876,6 +886,25 @@ class ExoPlayerCore(private val activity: Activity) : Player.Listener {
             val fraction = fontSize / 720f
             subtitleView?.setFractionalTextSize(fraction)
 
+            // Subtitle position: adjust gravity and bottom padding
+            val clampedPosition = subtitlePosition.coerceIn(0, 100)
+            val gravity = when {
+                clampedPosition <= 33 -> Gravity.TOP
+                clampedPosition <= 66 -> Gravity.CENTER
+                else -> Gravity.BOTTOM
+            }
+            (subtitleView?.layoutParams as? FrameLayout.LayoutParams)?.let { params ->
+                params.gravity = gravity or Gravity.CENTER_HORIZONTAL
+                subtitleView?.layoutParams = params
+            }
+            // Fine-grained positioning within bottom region via bottom padding fraction
+            if (clampedPosition > 66) {
+                val bottomFraction = (100 - clampedPosition) / 100f
+                subtitleView?.setBottomPaddingFraction(bottomFraction)
+            } else {
+                subtitleView?.setBottomPaddingFraction(0f)
+            }
+
             // 2. ASS subtitles: font scale via libass
             // MPV default sub-font-size is 38
             val defaultSize = 38f
@@ -886,7 +915,7 @@ class ExoPlayerCore(private val activity: Activity) : Player.Listener {
                 Log.w(TAG, "Failed to set ASS font scale: ${e.message}")
             }
 
-            Log.d(TAG, "setSubtitleStyle: fontSize=$fontSize, textColor=$textColor, borderSize=$borderSize, bgOpacity=$bgOpacity, assScale=$scale")
+            Log.d(TAG, "setSubtitleStyle: fontSize=$fontSize, textColor=$textColor, borderSize=$borderSize, bgOpacity=$bgOpacity, position=$subtitlePosition, assScale=$scale")
         }
     }
 

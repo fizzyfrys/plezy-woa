@@ -1,7 +1,7 @@
 import 'dart:io' show Platform, exit;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show SystemNavigator;
+import 'package:flutter/services.dart' show KeyUpEvent, SystemNavigator;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
@@ -24,11 +24,15 @@ import '../providers/playback_state_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/offline_watch_sync_service.dart';
+import '../services/settings_service.dart';
 import '../providers/offline_mode_provider.dart';
 import '../services/plex_auth_service.dart';
 import '../services/storage_service.dart';
+import '../services/companion_remote/companion_remote_receiver.dart';
+import '../providers/companion_remote_provider.dart';
 import '../utils/desktop_window_padding.dart';
 import '../widgets/side_navigation_rail.dart';
+import '../focus/dpad_navigator.dart';
 import '../focus/key_event_utils.dart';
 import 'discover_screen.dart';
 import 'libraries/libraries_screen.dart';
@@ -74,7 +78,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> with RouteAware, WindowListener {
+class _MainScreenState extends State<MainScreen> with RouteAware, WindowListener, WidgetsBindingObserver {
   late int _currentIndex;
   String? _selectedLibraryGlobalKey;
 
@@ -88,6 +92,9 @@ class _MainScreenState extends State<MainScreen> with RouteAware, WindowListener
   bool _autoSwitchedToDownloads = false;
 
   OfflineModeProvider? _offlineModeProvider;
+
+  /// Prevents double-pushing the profile selection screen
+  bool _isShowingProfileSelection = false;
 
   late List<Widget> _screens;
   final GlobalKey<State<DiscoverScreen>> _discoverKey = GlobalKey();
@@ -106,6 +113,8 @@ class _MainScreenState extends State<MainScreen> with RouteAware, WindowListener
   void initState() {
     super.initState();
     _isOffline = widget.isOfflineMode;
+
+    WidgetsBinding.instance.addObserver(this);
 
     if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
       windowManager.addListener(this);
@@ -142,7 +151,8 @@ class _MainScreenState extends State<MainScreen> with RouteAware, WindowListener
       }
 
       // Focus content initially (replaces autofocus which caused focus stealing issues)
-      if (!_isSidebarFocused) {
+      // Skip if profile selection is on top — it manages its own focus.
+      if (!_isSidebarFocused && !_isShowingProfileSelection) {
         _contentFocusScope.requestFocus();
       }
 
@@ -152,11 +162,20 @@ class _MainScreenState extends State<MainScreen> with RouteAware, WindowListener
   }
 
   Future<void> _promptForInitialProfileSelection(UserProfileProvider userProfileProvider) async {
-    if (!mounted || !userProfileProvider.needsInitialProfileSelection) return;
+    if (!mounted || _isShowingProfileSelection) return;
 
+    final needsInitial = userProfileProvider.needsInitialProfileSelection;
+    final settingsService = await SettingsService.getInstance();
+    if (!mounted) return;
+    final requireOnOpen = settingsService.getRequireProfileSelectionOnOpen() && userProfileProvider.hasMultipleUsers;
+
+    if (!needsInitial && !requireOnOpen) return;
+
+    _isShowingProfileSelection = true;
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (context) => const ProfileSwitchScreen(requireSelection: true)));
+    _isShowingProfileSelection = false;
   }
 
   Future<void> _checkForUpdatesOnStartup() async {
@@ -198,12 +217,24 @@ class _MainScreenState extends State<MainScreen> with RouteAware, WindowListener
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(t.common.later)),
+            TextButton(
+              autofocus: true,
+              onPressed: () => Navigator.pop(dialogContext),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                shape: const StadiumBorder(),
+              ),
+              child: Text(t.common.later),
+            ),
             TextButton(
               onPressed: () async {
                 await UpdateService.skipVersion(updateInfo['latestVersion']);
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
               },
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                shape: const StadiumBorder(),
+              ),
               child: Text(t.update.skipVersion),
             ),
             FilledButton(
@@ -335,6 +366,8 @@ class _MainScreenState extends State<MainScreen> with RouteAware, WindowListener
     }
   }
 
+  bool _companionRemoteSetup = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -351,11 +384,74 @@ class _MainScreenState extends State<MainScreen> with RouteAware, WindowListener
       _offlineModeProvider!.addListener(_handleOfflineStatusChanged);
     }
 
+    // Wire up Companion Remote command routing (desktop only, once)
+    if (!_companionRemoteSetup && PlatformDetector.isDesktop(context)) {
+      _companionRemoteSetup = true;
+      _setupCompanionRemote();
+    }
+
     routeObserver.subscribe(this, ModalRoute.of(context) as PageRoute);
+  }
+
+  void _setupCompanionRemote() {
+    final companionRemote = context.read<CompanionRemoteProvider>();
+    companionRemote.onCommandReceived = (command) {
+      if (mounted) {
+        CompanionRemoteReceiver.instance.handleCommand(command, context);
+      }
+    };
+
+    final receiver = CompanionRemoteReceiver.instance;
+    final tabCount = _getVisibleTabs(_isOffline).length;
+
+    receiver.onTabNext = () {
+      _selectTab((_currentIndex + 1) % tabCount);
+    };
+    receiver.onTabPrevious = () {
+      _selectTab((_currentIndex - 1 + tabCount) % tabCount);
+    };
+    receiver.onTabDiscover = () {
+      final idx = NavigationTab.indexFor(NavigationTabId.discover, isOffline: _isOffline);
+      if (idx >= 0) _selectTab(idx);
+    };
+    receiver.onTabLibraries = () {
+      final idx = NavigationTab.indexFor(NavigationTabId.libraries, isOffline: _isOffline);
+      if (idx >= 0) _selectTab(idx);
+    };
+    receiver.onTabSearch = () {
+      final idx = NavigationTab.indexFor(NavigationTabId.search, isOffline: _isOffline);
+      if (idx >= 0) _selectTab(idx);
+    };
+    receiver.onTabDownloads = () {
+      final idx = NavigationTab.indexFor(NavigationTabId.downloads, isOffline: _isOffline);
+      if (idx >= 0) _selectTab(idx);
+    };
+    receiver.onTabSettings = () {
+      final idx = NavigationTab.indexFor(NavigationTabId.settings, isOffline: _isOffline);
+      if (idx >= 0) _selectTab(idx);
+    };
+    receiver.onHome = () {
+      final idx = NavigationTab.indexFor(NavigationTabId.discover, isOffline: _isOffline);
+      if (idx >= 0) _selectTab(idx);
+    };
+    receiver.onSearchAction = (query) {
+      final idx = NavigationTab.indexFor(NavigationTabId.search, isOffline: _isOffline);
+      if (idx >= 0) {
+        _selectTab(idx);
+        if (query != null && query.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_searchKey.currentState case final SearchInputFocusable searchable) {
+              searchable.setSearchQuery(query);
+            }
+          });
+        }
+      }
+    };
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     routeObserver.unsubscribe(this);
     if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
       windowManager.removeListener(this);
@@ -364,12 +460,49 @@ class _MainScreenState extends State<MainScreen> with RouteAware, WindowListener
     _offlineModeProvider?.removeListener(_handleOfflineStatusChanged);
     _sidebarFocusScope.dispose();
     _contentFocusScope.dispose();
+
+    // Clean up companion remote callbacks
+    if (_companionRemoteSetup) {
+      final receiver = CompanionRemoteReceiver.instance;
+      receiver.onTabNext = null;
+      receiver.onTabPrevious = null;
+      receiver.onTabDiscover = null;
+      receiver.onTabLibraries = null;
+      receiver.onTabSearch = null;
+      receiver.onTabDownloads = null;
+      receiver.onTabSettings = null;
+      receiver.onHome = null;
+      receiver.onSearchAction = null;
+    }
+
     super.dispose();
   }
 
   @override
   void onWindowClose() {
     exit(0);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_isOffline && !_isShowingProfileSelection) {
+      _showProfileSelectionOnResume();
+    }
+  }
+
+  Future<void> _showProfileSelectionOnResume() async {
+    final settingsService = await SettingsService.getInstance();
+    if (!settingsService.getRequireProfileSelectionOnOpen()) return;
+    if (!mounted) return;
+
+    final userProfileProvider = context.read<UserProfileProvider>();
+    if (!userProfileProvider.hasMultipleUsers) return;
+
+    _isShowingProfileSelection = true;
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const ProfileSwitchScreen(requireSelection: true)));
+    _isShowingProfileSelection = false;
   }
 
   List<Widget> _buildScreens(bool offline) {
@@ -472,6 +605,14 @@ class _MainScreenState extends State<MainScreen> with RouteAware, WindowListener
   void _focusContent() {
     setState(() => _isSidebarFocused = false);
     _contentFocusScope.requestFocus();
+    // When content regains focus while on Discover, focus the hero section
+    if (_currentIndex == 0 && !_isOffline) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_discoverKey.currentState case final TabVisibilityAware aware) {
+          aware.onTabShown();
+        }
+      });
+    }
     // When content regains focus while on Libraries, retry focusing the active tab
     if (_currentIndex == 1 && !_isOffline) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -491,7 +632,17 @@ class _MainScreenState extends State<MainScreen> with RouteAware, WindowListener
     }
   }
 
+  /// Suppress stray back events after a child route pops.
+  /// On Android TV the platform popRoute can arrive before the key events,
+  /// so BackKeySuppressorObserver misses them and they leak into _handleBackKey.
+  bool _suppressBackAfterPop = false;
+
   KeyEventResult _handleBackKey(KeyEvent event) {
+    if (_suppressBackAfterPop && event.logicalKey.isBackKey) {
+      if (event is KeyUpEvent) _suppressBackAfterPop = false;
+      return KeyEventResult.handled;
+    }
+
     if (!_isSidebarFocused) {
       // Content focused → move to sidebar
       return handleBackKeyAction(event, _focusSidebar);
@@ -521,6 +672,15 @@ class _MainScreenState extends State<MainScreen> with RouteAware, WindowListener
 
   @override
   void didPopNext() {
+    // Suppress stray back key events from the pop that just returned us here
+    _suppressBackAfterPop = true;
+    // Auto-clear after 2 frames in case no back event arrives
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _suppressBackAfterPop = false;
+      });
+    });
+
     // Called when returning to this route from a child route (e.g., from video player)
     if (_currentIndex == 0 && !_isOffline) {
       if (_discoverKey.currentState case final TabVisibilityAware aware) {

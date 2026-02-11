@@ -794,12 +794,17 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<PlexMetadata, LibraryBr
     final offset = _effectiveTopPadding + targetRow * rowHeight - _chipsBarHeight;
 
     final gen = _jumpScrollGeneration;
+    final clampedOffset = offset.clamp(0.0, _scrollController.position.maxScrollExtent);
+
+    // If a newer jump already superseded this one, skip the animation
+    // entirely — the next call will handle the final position.
+    if (gen != _jumpScrollGeneration) {
+      _scrollController.jumpTo(clampedOffset);
+      return;
+    }
+
     _scrollController
-        .animateTo(
-          offset.clamp(0.0, _scrollController.position.maxScrollExtent),
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        )
+        .animateTo(clampedOffset, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut)
         .then((_) {
           // Only clear the flag if no newer jump has started.
           if (mounted && gen == _jumpScrollGeneration) {

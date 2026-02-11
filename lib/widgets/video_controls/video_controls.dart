@@ -1,6 +1,7 @@
 import 'dart:async' show StreamSubscription, Timer;
 import 'dart:io' show Platform;
 
+import 'package:flutter/gestures.dart' show PointerSignalEvent, PointerScrollEvent;
 import 'package:flutter/material.dart';
 import 'package:plezy/widgets/app_icon.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -258,6 +259,7 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
       _initAlwaysOnTopState();
     }
 
+
     // Focus play/pause button on first frame if in keyboard mode
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusPlayPauseIfKeyboardMode();
@@ -339,13 +341,13 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
     });
   }
 
-  /// Listen to playback state changes to manage auto-hide timer on iOS/mobile
+  /// Listen to playback state changes to manage auto-hide timer
   void _listenToPlayingState() {
     _playingSubscription = widget.player.streams.playing.listen((isPlaying) {
       if (isPlaying && _showControls) {
         _startHideTimer();
-      } else if (!isPlaying) {
-        _hideTimer?.cancel();
+      } else if (!isPlaying && _showControls) {
+        _startPausedHideTimer();
       }
     });
   }
@@ -606,6 +608,37 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
     // Lag during resize is now handled in native code (glViewport + resize signal handler)
   }
 
+  /// Controls hide delay: 5s on mobile/TV/keyboard-nav, 3s on desktop with mouse.
+  Duration get _hideDelay {
+    final isMobile = PlatformDetector.isMobile(context) && !PlatformDetector.isTV();
+    if (isMobile || PlatformDetector.isTV() || _videoPlayerNavigationEnabled) {
+      return const Duration(seconds: 5);
+    }
+    return const Duration(seconds: 3);
+  }
+
+  /// Shared hide logic: hides controls, notifies parent, updates traffic lights, restores focus.
+  void _hideControls() {
+    if (!mounted || !_showControls) return;
+    setState(() {
+      _showControls = false;
+    });
+    widget.controlsVisible?.value = false;
+    if (Platform.isMacOS) {
+      _updateTrafficLightVisibility();
+    }
+    // Immediately try to reclaim focus (important for TV where global handler
+    // won't fire if _focusNode lost focus)
+    if (!_focusNode.hasFocus) {
+      _focusNode.requestFocus();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_focusNode.hasFocus) {
+        _focusNode.requestFocus();
+      }
+    });
+  }
+
   void _startHideTimer() {
     _hideTimer?.cancel();
 
@@ -615,35 +648,49 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
 
     // Only auto-hide if playing
     if (widget.player.state.playing) {
-      _hideTimer = Timer(const Duration(seconds: 3), () {
+      _hideTimer = Timer(_hideDelay, () {
         // Also check hasFirstFrame in callback (in case it changed)
         final stillLoading = !(widget.hasFirstFrame?.value ?? true);
         if (mounted && widget.player.state.playing && !stillLoading) {
-          setState(() {
-            _showControls = false;
-          });
-          // Notify parent of visibility change (for popup positioning)
-          widget.controlsVisible?.value = false;
-          // Hide traffic lights on macOS when controls auto-hide
-          if (Platform.isMacOS) {
-            _updateTrafficLightVisibility();
-          }
-          // Restore focus to the main node so keyboard shortcuts keep working
-          // after FocusScope(canRequestFocus: false) ejects child focus.
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && !_focusNode.hasFocus) {
-              _focusNode.requestFocus();
-            }
-          });
+          _hideControls();
         }
       });
     }
+  }
+
+  /// Auto-hide controls after pause (does not check playing state in callback).
+  void _startPausedHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(_hideDelay, () {
+      _hideControls();
+    });
   }
 
   /// Restart the hide timer on user interaction (if video is playing)
   void _restartHideTimerIfPlaying() {
     if (widget.player.state.playing) {
       _startHideTimer();
+    }
+  }
+
+  /// Hide controls immediately when the mouse leaves the player area (desktop only).
+  void _hideControlsFromPointerExit() {
+    final isMobile = PlatformDetector.isMobile(context) && !PlatformDetector.isTV();
+    if (isMobile) return;
+
+    _hideTimer?.cancel();
+    _hideControls();
+  }
+
+  void _handlePointerSignal(PointerSignalEvent event) {
+    if (event is PointerScrollEvent && _keyboardService != null) {
+      final delta = event.scrollDelta.dy;
+      final volume = widget.player.state.volume;
+      final maxVol = _keyboardService!.maxVolume.toDouble();
+      final newVolume = (volume - delta / 20).clamp(0.0, maxVol);
+      widget.player.setVolume(newVolume);
+      SettingsService.getInstance().then((s) => s.setVolume(newVolume));
+      _showControlsFromPointerActivity();
     }
   }
 
@@ -705,7 +752,12 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
   }
 
   void _updateTrafficLightVisibility() async {
-    await MacOSWindowService.setTrafficLightsVisible(_showControls);
+    // When maximized or fullscreen, always keep traffic lights visible so the
+    // user can reach them without the controls-hide-on-mouse-leave race.
+    // In normal windowed mode, toggle with controls as before.
+    final isMaximizedOrFullscreen = await windowManager.isMaximized() || await windowManager.isFullScreen();
+    final visible = isMaximizedOrFullscreen ? true : _showControls;
+    await MacOSWindowService.setTrafficLightsVisible(visible);
   }
 
   /// Check whether PiP is supported on this device
@@ -1287,6 +1339,20 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
   bool _handleGlobalKeyEvent(KeyEvent event) {
     if (!mounted) return false;
 
+    // TV back key fallback — Focus.onKeyEvent won't fire if _focusNode lost focus
+    if (PlatformDetector.isTV() && event.logicalKey.isBackKey) {
+      if (!_focusNode.hasFocus) {
+        final backResult = handleBackKeyAction(event, () {
+          if (!_showControls) {
+            _showControlsWithFocus();
+          } else {
+            (widget.onBack ?? () => Navigator.of(context).pop(true))();
+          }
+        });
+        if (backResult != KeyEventResult.ignored) return true;
+      }
+    }
+
     // Only handle when video player navigation is disabled (desktop mode without D-pad nav)
     if (_videoPlayerNavigationEnabled) return false;
 
@@ -1523,6 +1589,7 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
               _previousChapter,
               onBack: widget.onBack ?? () => Navigator.of(context).pop(true),
               onToggleShader: _toggleShader,
+              onSkipMarker: _performAutoSkip,
             );
             // Never return .ignored from fullscreen video — prevent leaking to previous routes
             return result == KeyEventResult.ignored ? KeyEventResult.handled : result;
@@ -1530,9 +1597,11 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
           child: Listener(
             behavior: HitTestBehavior.translucent,
             onPointerHover: (_) => _showControlsFromPointerActivity(),
+            onPointerSignal: _handlePointerSignal,
             child: MouseRegion(
               cursor: _showControls ? SystemMouseCursors.basic : SystemMouseCursors.none,
               onHover: (_) => _showControlsFromPointerActivity(),
+              onExit: (_) => _hideControlsFromPointerExit(),
               child: Stack(
                 children: [
                   // Keep-alive: 1px widget that continuously repaints to prevent

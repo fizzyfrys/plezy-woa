@@ -25,6 +25,7 @@ import 'providers/download_provider.dart';
 import 'providers/offline_mode_provider.dart';
 import 'providers/offline_watch_provider.dart';
 import 'providers/shader_provider.dart';
+import 'providers/companion_remote_provider.dart';
 import 'watch_together/watch_together.dart';
 import 'services/multi_server_manager.dart';
 import 'services/offline_watch_sync_service.dart';
@@ -42,6 +43,7 @@ import 'utils/orientation_helper.dart';
 import 'utils/language_codes.dart';
 import 'i18n/strings.g.dart';
 import 'focus/input_mode_tracker.dart';
+import 'focus/key_event_utils.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 // Workaround for Flutter bug #177992: iPadOS 26.1+ misinterprets fake touch events
@@ -213,7 +215,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     PlexApiCache.initialize(_appDatabase);
 
     _downloadManager = DownloadManagerService(database: _appDatabase, storageService: DownloadStorageService.instance);
-    _downloadManager.recoverInterruptedDownloads();
+    _downloadManager.recoveryFuture = _downloadManager.recoverInterruptedDownloads();
 
     _offlineWatchSyncService = OfflineWatchSyncService(database: _appDatabase, serverManager: _serverManager);
 
@@ -306,6 +308,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (context) => PlaybackStateProvider()),
         ChangeNotifierProvider(create: (context) => WatchTogetherProvider()),
         ChangeNotifierProvider(create: (context) => ShaderProvider()),
+        ChangeNotifierProvider(create: (context) => CompanionRemoteProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
@@ -317,7 +320,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
                 theme: themeProvider.lightTheme,
                 darkTheme: themeProvider.darkTheme,
                 themeMode: themeProvider.materialThemeMode,
-                navigatorObservers: [routeObserver],
+                navigatorObservers: [routeObserver, BackKeySuppressorObserver()],
                 home: const OrientationAwareSetup(),
               ),
             ),
@@ -397,6 +400,12 @@ class _SetupScreenState extends State<SetupScreen> {
       if (!mounted) return;
 
       if (result.hasConnections) {
+        // Resume any downloads that were interrupted by app kill
+        final downloadProvider = context.read<DownloadProvider>();
+        downloadProvider.ensureInitialized().then((_) {
+          downloadProvider.resumeQueuedDownloads(result.firstClient!);
+        });
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => MainScreen(client: result.firstClient!)),
@@ -429,7 +438,7 @@ class _SetupScreenState extends State<SetupScreen> {
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: [const CircularProgressIndicator(), const SizedBox(height: 16), Text(t.app.loading)],
+          children: [const CircularProgressIndicator(), const SizedBox(height: 16), Text(t.common.loading)],
         ),
       ),
     );
