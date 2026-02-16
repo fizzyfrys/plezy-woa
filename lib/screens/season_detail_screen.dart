@@ -102,6 +102,9 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen>
 
   @override
   void onDeletionEvent(DeletionEvent event) {
+    // Download-only deletions should only remove items when viewing offline content
+    if (event.isDownloadOnly && !widget.isOffline) return;
+
     // If we have an episode that matches the rating key exactly, then remove it from our list
     final index = _episodes.indexWhere((e) => e.ratingKey == event.ratingKey);
     if (index != -1) {
@@ -150,11 +153,13 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen>
       // Episodes are automatically tagged with server info by PlexClient
       final episodes = await _client!.getChildren(widget.season.ratingKey);
 
+      if (!mounted) return;
       setState(() {
         _episodes = episodes;
         _isLoadingEpisodes = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoadingEpisodes = false;
       });
@@ -302,6 +307,7 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen>
 
     return PopScope(
       canPop: false, // Prevent system back from double-popping on Android keyboard/TV
+      // ignore: no-empty-block - required callback, blocks system back on Android TV
       onPopInvokedWithResult: (didPop, result) {},
       child: content,
     );
@@ -376,6 +382,8 @@ class _EpisodeCardState extends State<_EpisodeCard> {
         widget.episode.viewOffset! > 0;
     final progress = hasProgress ? widget.episode.viewOffset! / widget.episode.duration! : 0.0;
 
+    final hasActiveProgress = hasProgress && widget.episode.viewOffset! < widget.episode.duration!;
+
     return FocusableWrapper(
       autofocus: widget.autofocus,
       enableLongPress: true,
@@ -398,7 +406,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
             decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: tokens(context).outline, width: 0.5)),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            padding: const EdgeInsets.all(16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -408,37 +416,15 @@ class _EpisodeCardState extends State<_EpisodeCard> {
                   child: Stack(
                     children: [
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: AspectRatio(
-                          aspectRatio: 16 / 9,
-                          child: widget.isOffline && widget.localPosterPath != null
-                              ? Image.file(
-                                  File(widget.localPosterPath!),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => const PlaceholderContainer(
-                                    child: AppIcon(Symbols.movie_rounded, fill: 1, size: 32),
-                                  ),
-                                )
-                              : widget.episode.thumb != null
-                              ? PlexOptimizedImage.thumb(
-                                  client: widget.client,
-                                  imagePath: widget.episode.thumb,
-                                  filterQuality: FilterQuality.medium,
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) => const PlaceholderContainer(),
-                                  errorWidget: (context, url, error) => const PlaceholderContainer(
-                                    child: AppIcon(Symbols.movie_rounded, fill: 1, size: 32),
-                                  ),
-                                )
-                              : const PlaceholderContainer(child: AppIcon(Symbols.movie_rounded, fill: 1, size: 32)),
-                        ),
+                        borderRadius: const BorderRadius.all(Radius.circular(6)),
+                        child: AspectRatio(aspectRatio: 16 / 9, child: _buildEpisodeThumbnail()),
                       ),
 
                       // Play overlay
                       Positioned.fill(
                         child: Container(
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: const BorderRadius.all(Radius.circular(6)),
                             gradient: LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
@@ -459,7 +445,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
                       ),
 
                       // Progress bar at bottom
-                      if (hasProgress && !widget.episode.isWatched)
+                      if (hasActiveProgress)
                         Positioned(
                           bottom: 0,
                           left: 0,
@@ -477,7 +463,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
                           ),
                         ),
 
-                      if (widget.episode.isWatched)
+                      if (widget.episode.isWatched && !hasActiveProgress)
                         Positioned(
                           top: 4,
                           right: 4,
@@ -607,7 +593,7 @@ class _EpisodeCardState extends State<_EpisodeCard> {
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: Theme.of(context).colorScheme.primaryContainer,
-                                    borderRadius: BorderRadius.circular(3),
+                                    borderRadius: const BorderRadius.all(Radius.circular(3)),
                                   ),
                                   child: Text(
                                     'E${widget.episode.index}',
@@ -660,5 +646,28 @@ class _EpisodeCardState extends State<_EpisodeCard> {
         ),
       ),
     );
+  }
+
+  Widget _buildEpisodeThumbnail() {
+    if (widget.isOffline && widget.localPosterPath != null) {
+      return Image.file(
+        File(widget.localPosterPath!),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            const PlaceholderContainer(child: AppIcon(Symbols.movie_rounded, fill: 1, size: 32)),
+      );
+    }
+    if (widget.episode.thumb != null) {
+      return PlexOptimizedImage.thumb(
+        client: widget.client,
+        imagePath: widget.episode.thumb,
+        filterQuality: FilterQuality.medium,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => const PlaceholderContainer(),
+        errorWidget: (context, url, error) =>
+            const PlaceholderContainer(child: AppIcon(Symbols.movie_rounded, fill: 1, size: 32)),
+      );
+    }
+    return const PlaceholderContainer(child: AppIcon(Symbols.movie_rounded, fill: 1, size: 32));
   }
 }

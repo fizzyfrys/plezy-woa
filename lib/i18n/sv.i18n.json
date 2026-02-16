@@ -46,7 +46,12 @@
     "settings": "Inställningar",
     "mute": "Ljud av",
     "ok": "OK",
-    "loading": "Laddar..."
+    "loading": "Laddar...",
+    "reconnect": "Återanslut",
+    "exitConfirmTitle": "Avsluta appen?",
+    "exitConfirmMessage": "Är du säker på att du vill avsluta?",
+    "dontAskAgain": "Fråga inte igen",
+    "exit": "Avsluta"
   },
   "screens": {
     "licenses": "Licenser",
@@ -185,7 +190,9 @@
     "matchContentFrameRate": "Matcha innehållets bildfrekvens",
     "matchContentFrameRateDescription": "Justera skärmens uppdateringsfrekvens för att matcha videoinnehållet, minskar hackighet och sparar batteri",
     "requireProfileSelectionOnOpen": "Fråga efter profil vid appstart",
-    "requireProfileSelectionOnOpenDescription": "Visa profilval varje gång appen öppnas"
+    "requireProfileSelectionOnOpenDescription": "Visa profilval varje gång appen öppnas",
+    "confirmExitOnBack": "Bekräfta innan avslut",
+    "confirmExitOnBackDescription": "Visa en bekräftelsedialog när du trycker tillbaka för att avsluta appen"
   },
   "search": {
     "hint": "Sök filmer, serier, musik...",
@@ -273,6 +280,7 @@
   },
   "tooltips": {
     "shufflePlay": "Blanda uppspelning",
+    "playTrailer": "Spela trailer",
     "markAsWatched": "Markera som sedd",
     "markAsUnwatched": "Markera som osedd"
   },
@@ -419,6 +427,7 @@
     "playEpisode": "S${season}E${episode}",
     "overview": "Översikt",
     "cast": "Rollbesättning",
+    "extras": "Trailers och Extra",
     "seasons": "Säsonger",
     "studio": "Studio",
     "rating": "Åldersgräns",
@@ -527,7 +536,47 @@
   },
   "navigation": {
     "libraries": "Bibliotek",
-    "downloads": "Nedladdningar"
+    "downloads": "Nedladdningar",
+    "liveTv": "Live-TV"
+  },
+  "liveTv": {
+    "title": "Live-TV",
+    "channels": "Kanaler",
+    "guide": "Programguide",
+    "recordings": "Inspelningar",
+    "subscriptions": "Inspelningsregler",
+    "scheduled": "Schemalagda",
+    "noChannels": "Inga kanaler tillgängliga",
+    "noDvr": "Ingen DVR konfigurerad på någon server",
+    "tuneFailed": "Kunde inte ställa in kanalen",
+    "loading": "Laddar kanaler...",
+    "nowPlaying": "Spelas nu",
+    "record": "Spela in",
+    "recordSeries": "Spela in serie",
+    "cancelRecording": "Avbryt inspelning",
+    "deleteSubscription": "Ta bort inspelningsregel",
+    "deleteSubscriptionConfirm": "Är du säker på att du vill ta bort denna inspelningsregel?",
+    "subscriptionDeleted": "Inspelningsregel borttagen",
+    "noPrograms": "Ingen programdata tillgänglig",
+    "noRecordings": "Inga inspelningar schemalagda",
+    "noSubscriptions": "Inga inspelningsregler",
+    "channelNumber": "Kanal ${number}",
+    "live": "LIVE",
+    "hd": "HD",
+    "premiere": "NY",
+    "reloadGuide": "Ladda om programguide",
+    "guideReloaded": "Programdata omladdad",
+    "allChannels": "Alla kanaler",
+    "now": "Nu",
+    "today": "Idag",
+    "midnight": "Midnatt",
+    "overnight": "Natt",
+    "morning": "Morgon",
+    "daytime": "Dagtid",
+    "evening": "Kväll",
+    "lateNight": "Sen kväll",
+    "whatsOn": "På TV nu",
+    "watchChannel": "Titta på kanal"
   },
   "downloads": {
     "title": "Nedladdningar",
@@ -758,5 +807,22 @@
     "hdr": "HDR",
     "audioOutput": "Ljudutgång",
     "performanceOverlay": "Prestandaöverlägg"
+  },
+  "externalPlayer": {
+    "title": "Extern spelare",
+    "useExternalPlayer": "Använd extern spelare",
+    "useExternalPlayerDescription": "Öppna videor i en extern app istället för den inbyggda spelaren",
+    "selectPlayer": "Välj spelare",
+    "systemDefault": "Systemstandard",
+    "addCustomPlayer": "Lägg till anpassad spelare",
+    "playerName": "Spelarnamn",
+    "playerCommand": "Kommando",
+    "playerPackage": "Paketnamn",
+    "playerUrlScheme": "URL-schema",
+    "customPlayer": "Anpassad spelare",
+    "off": "Av",
+    "launchFailed": "Kunde inte öppna extern spelare",
+    "appNotInstalled": "${name} är inte installerad",
+    "playInExternalPlayer": "Spela i extern spelare"
   }
 }

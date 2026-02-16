@@ -16,7 +16,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 7; // Added OfflineWatchProgress table
+  int get schemaVersion => 8; // Added bgTaskId column to DownloadedMedia
 
   @override
   MigrationStrategy get migration {
@@ -25,10 +25,17 @@ class AppDatabase extends _$AppDatabase {
         await m.createAll();
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        // Additive migration for schema version 7
         if (from < 7) {
           appLogger.i('Adding OfflineWatchProgress table (v7 migration)');
           await m.createTable(offlineWatchProgress);
+        }
+        if (from < 8) {
+          appLogger.i('Adding bgTaskId column to DownloadedMedia (v8 migration)');
+          try {
+            await m.addColumn(downloadedMedia, downloadedMedia.bgTaskId);
+          } catch (e) {
+            appLogger.w('bgTaskId column may already exist: $e');
+          }
         }
       },
     );
@@ -197,12 +204,9 @@ class AppDatabase extends _$AppDatabase {
 
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    final Directory dbFolder;
-    if (Platform.isAndroid || Platform.isIOS) {
-      dbFolder = await getApplicationDocumentsDirectory();
-    } else {
-      dbFolder = await getApplicationSupportDirectory();
-    }
+    final dbFolder = (Platform.isAndroid || Platform.isIOS)
+        ? await getApplicationDocumentsDirectory()
+        : await getApplicationSupportDirectory();
 
     final file = File(p.join(dbFolder.path, 'plezy_downloads.db'));
 

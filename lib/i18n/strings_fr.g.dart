@@ -65,6 +65,7 @@ class TranslationsFr with BaseTranslations<AppLocale, Translations> implements T
 	@override late final _TranslationsLogsFr logs = _TranslationsLogsFr._(_root);
 	@override late final _TranslationsLicensesFr licenses = _TranslationsLicensesFr._(_root);
 	@override late final _TranslationsNavigationFr navigation = _TranslationsNavigationFr._(_root);
+	@override late final _TranslationsLiveTvFr liveTv = _TranslationsLiveTvFr._(_root);
 	@override late final _TranslationsCollectionsFr collections = _TranslationsCollectionsFr._(_root);
 	@override late final _TranslationsPlaylistsFr playlists = _TranslationsPlaylistsFr._(_root);
 	@override late final _TranslationsWatchTogetherFr watchTogether = _TranslationsWatchTogetherFr._(_root);
@@ -72,6 +73,7 @@ class TranslationsFr with BaseTranslations<AppLocale, Translations> implements T
 	@override late final _TranslationsShadersFr shaders = _TranslationsShadersFr._(_root);
 	@override late final _TranslationsCompanionRemoteFr companionRemote = _TranslationsCompanionRemoteFr._(_root);
 	@override late final _TranslationsVideoSettingsFr videoSettings = _TranslationsVideoSettingsFr._(_root);
+	@override late final _TranslationsExternalPlayerFr externalPlayer = _TranslationsExternalPlayerFr._(_root);
 }
 
 // Path: app
@@ -142,6 +144,11 @@ class _TranslationsCommonFr implements TranslationsCommonEn {
 	@override String get mute => 'Muet';
 	@override String get ok => 'OK';
 	@override String get loading => 'Chargement...';
+	@override String get reconnect => 'Reconnecter';
+	@override String get exitConfirmTitle => 'Quitter l\'application ?';
+	@override String get exitConfirmMessage => 'Êtes-vous sûr de vouloir quitter ?';
+	@override String get dontAskAgain => 'Ne plus demander';
+	@override String get exit => 'Quitter';
 }
 
 // Path: screens
@@ -302,6 +309,8 @@ class _TranslationsSettingsFr implements TranslationsSettingsEn {
 	@override String get matchContentFrameRateDescription => 'Ajustez la fréquence de rafraîchissement de l\'écran en fonction du contenu vidéo, ce qui réduit les saccades et économise la batterie';
 	@override String get requireProfileSelectionOnOpen => 'Demander le profil à l\'ouverture';
 	@override String get requireProfileSelectionOnOpenDescription => 'Afficher la sélection de profil à chaque ouverture de l\'application';
+	@override String get confirmExitOnBack => 'Confirmer avant de quitter';
+	@override String get confirmExitOnBackDescription => 'Afficher une boîte de dialogue de confirmation en appuyant sur retour pour quitter';
 }
 
 // Path: search
@@ -418,6 +427,7 @@ class _TranslationsTooltipsFr implements TranslationsTooltipsEn {
 
 	// Translations
 	@override String get shufflePlay => 'Lecture aléatoire';
+	@override String get playTrailer => 'Lire la bande-annonce';
 	@override String get markAsWatched => 'Marqué comme vu';
 	@override String get markAsUnwatched => 'Marqué comme non vu';
 }
@@ -607,6 +617,7 @@ class _TranslationsDiscoverFr implements TranslationsDiscoverEn {
 	@override String playEpisode({required Object season, required Object episode}) => 'S${season}E${episode}';
 	@override String get overview => 'Aperçu';
 	@override String get cast => 'Cast';
+	@override String get extras => 'Bandes-annonces et Extras';
 	@override String get seasons => 'Saisons';
 	@override String get studio => 'Studio';
 	@override String get rating => 'Évaluation';
@@ -760,6 +771,53 @@ class _TranslationsNavigationFr implements TranslationsNavigationEn {
 	// Translations
 	@override String get libraries => 'Bibliothèques';
 	@override String get downloads => 'Téléchargements';
+	@override String get liveTv => 'TV en direct';
+}
+
+// Path: liveTv
+class _TranslationsLiveTvFr implements TranslationsLiveTvEn {
+	_TranslationsLiveTvFr._(this._root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'TV en direct';
+	@override String get channels => 'Chaînes';
+	@override String get guide => 'Guide';
+	@override String get recordings => 'Enregistrements';
+	@override String get subscriptions => 'Règles d\'enregistrement';
+	@override String get scheduled => 'Programmés';
+	@override String get noChannels => 'Aucune chaîne disponible';
+	@override String get noDvr => 'Aucun DVR configuré sur les serveurs';
+	@override String get tuneFailed => 'Impossible de syntoniser la chaîne';
+	@override String get loading => 'Chargement des chaînes...';
+	@override String get nowPlaying => 'En cours de lecture';
+	@override String get record => 'Enregistrer';
+	@override String get recordSeries => 'Enregistrer la série';
+	@override String get cancelRecording => 'Annuler l\'enregistrement';
+	@override String get deleteSubscription => 'Supprimer la règle d\'enregistrement';
+	@override String get deleteSubscriptionConfirm => 'Voulez-vous vraiment supprimer cette règle d\'enregistrement ?';
+	@override String get subscriptionDeleted => 'Règle d\'enregistrement supprimée';
+	@override String get noPrograms => 'Aucune donnée de programme disponible';
+	@override String get noRecordings => 'Aucun enregistrement programmé';
+	@override String get noSubscriptions => 'Aucune règle d\'enregistrement';
+	@override String channelNumber({required Object number}) => 'Ch. ${number}';
+	@override String get live => 'EN DIRECT';
+	@override String get hd => 'HD';
+	@override String get premiere => 'NOUVEAU';
+	@override String get reloadGuide => 'Recharger le guide';
+	@override String get guideReloaded => 'Données du guide rechargées';
+	@override String get allChannels => 'Toutes les chaînes';
+	@override String get now => 'Maintenant';
+	@override String get today => 'Aujourd\'hui';
+	@override String get midnight => 'Minuit';
+	@override String get overnight => 'Nuit';
+	@override String get morning => 'Matin';
+	@override String get daytime => 'Journée';
+	@override String get evening => 'Soirée';
+	@override String get lateNight => 'Nuit tardive';
+	@override String get whatsOn => 'En ce moment';
+	@override String get watchChannel => 'Regarder la chaîne';
 }
 
 // Path: collections
@@ -959,6 +1017,30 @@ class _TranslationsVideoSettingsFr implements TranslationsVideoSettingsEn {
 	@override String get hdr => 'HDR';
 	@override String get audioOutput => 'Sortie audio';
 	@override String get performanceOverlay => 'Superposition de performance';
+}
+
+// Path: externalPlayer
+class _TranslationsExternalPlayerFr implements TranslationsExternalPlayerEn {
+	_TranslationsExternalPlayerFr._(this._root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Lecteur externe';
+	@override String get useExternalPlayer => 'Utiliser un lecteur externe';
+	@override String get useExternalPlayerDescription => 'Ouvrir les vidéos dans une application externe au lieu du lecteur intégré';
+	@override String get selectPlayer => 'Sélectionner le lecteur';
+	@override String get systemDefault => 'Par défaut du système';
+	@override String get addCustomPlayer => 'Ajouter un lecteur personnalisé';
+	@override String get playerName => 'Nom du lecteur';
+	@override String get playerCommand => 'Commande';
+	@override String get playerPackage => 'Nom du paquet';
+	@override String get playerUrlScheme => 'Schéma URL';
+	@override String get customPlayer => 'Lecteur personnalisé';
+	@override String get off => 'Désactivé';
+	@override String get launchFailed => 'Impossible d\'ouvrir le lecteur externe';
+	@override String appNotInstalled({required Object name}) => '${name} n\'est pas installé';
+	@override String get playInExternalPlayer => 'Lire dans un lecteur externe';
 }
 
 // Path: hotkeys.actions
@@ -1186,6 +1268,11 @@ extension on TranslationsFr {
 			'common.mute' => 'Muet',
 			'common.ok' => 'OK',
 			'common.loading' => 'Chargement...',
+			'common.reconnect' => 'Reconnecter',
+			'common.exitConfirmTitle' => 'Quitter l\'application ?',
+			'common.exitConfirmMessage' => 'Êtes-vous sûr de vouloir quitter ?',
+			'common.dontAskAgain' => 'Ne plus demander',
+			'common.exit' => 'Quitter',
 			'screens.licenses' => 'Licenses',
 			'screens.switchProfile' => 'Changer de profil',
 			'screens.subtitleStyling' => 'Configuration des sous-titres',
@@ -1319,6 +1406,8 @@ extension on TranslationsFr {
 			'settings.matchContentFrameRateDescription' => 'Ajustez la fréquence de rafraîchissement de l\'écran en fonction du contenu vidéo, ce qui réduit les saccades et économise la batterie',
 			'settings.requireProfileSelectionOnOpen' => 'Demander le profil à l\'ouverture',
 			'settings.requireProfileSelectionOnOpenDescription' => 'Afficher la sélection de profil à chaque ouverture de l\'application',
+			'settings.confirmExitOnBack' => 'Confirmer avant de quitter',
+			'settings.confirmExitOnBackDescription' => 'Afficher une boîte de dialogue de confirmation en appuyant sur retour pour quitter',
 			'search.hint' => 'Rechercher des films, des séries, de la musique...',
 			'search.tryDifferentTerm' => 'Essayez un autre terme de recherche',
 			'search.searchYourMedia' => 'Rechercher dans vos médias',
@@ -1390,6 +1479,7 @@ extension on TranslationsFr {
 			'accessibility.mediaCardUnwatched' => 'non visionné',
 			'accessibility.tapToPlay' => 'Appuyez pour lire',
 			'tooltips.shufflePlay' => 'Lecture aléatoire',
+			'tooltips.playTrailer' => 'Lire la bande-annonce',
 			'tooltips.markAsWatched' => 'Marqué comme vu',
 			'tooltips.markAsUnwatched' => 'Marqué comme non vu',
 			'videoControls.audioLabel' => 'Audio',
@@ -1520,6 +1610,7 @@ extension on TranslationsFr {
 			'discover.playEpisode' => ({required Object season, required Object episode}) => 'S${season}E${episode}',
 			'discover.overview' => 'Aperçu',
 			'discover.cast' => 'Cast',
+			'discover.extras' => 'Bandes-annonces et Extras',
 			'discover.seasons' => 'Saisons',
 			'discover.studio' => 'Studio',
 			'discover.rating' => 'Évaluation',
@@ -1609,6 +1700,46 @@ extension on TranslationsFr {
 			'licenses.licensesCount' => ({required Object count}) => '${count} licences',
 			'navigation.libraries' => 'Bibliothèques',
 			'navigation.downloads' => 'Téléchargements',
+			'navigation.liveTv' => 'TV en direct',
+			'liveTv.title' => 'TV en direct',
+			'liveTv.channels' => 'Chaînes',
+			'liveTv.guide' => 'Guide',
+			'liveTv.recordings' => 'Enregistrements',
+			'liveTv.subscriptions' => 'Règles d\'enregistrement',
+			'liveTv.scheduled' => 'Programmés',
+			'liveTv.noChannels' => 'Aucune chaîne disponible',
+			'liveTv.noDvr' => 'Aucun DVR configuré sur les serveurs',
+			'liveTv.tuneFailed' => 'Impossible de syntoniser la chaîne',
+			'liveTv.loading' => 'Chargement des chaînes...',
+			'liveTv.nowPlaying' => 'En cours de lecture',
+			'liveTv.record' => 'Enregistrer',
+			'liveTv.recordSeries' => 'Enregistrer la série',
+			'liveTv.cancelRecording' => 'Annuler l\'enregistrement',
+			'liveTv.deleteSubscription' => 'Supprimer la règle d\'enregistrement',
+			'liveTv.deleteSubscriptionConfirm' => 'Voulez-vous vraiment supprimer cette règle d\'enregistrement ?',
+			'liveTv.subscriptionDeleted' => 'Règle d\'enregistrement supprimée',
+			'liveTv.noPrograms' => 'Aucune donnée de programme disponible',
+			'liveTv.noRecordings' => 'Aucun enregistrement programmé',
+			'liveTv.noSubscriptions' => 'Aucune règle d\'enregistrement',
+			'liveTv.channelNumber' => ({required Object number}) => 'Ch. ${number}',
+			'liveTv.live' => 'EN DIRECT',
+			'liveTv.hd' => 'HD',
+			'liveTv.premiere' => 'NOUVEAU',
+			'liveTv.reloadGuide' => 'Recharger le guide',
+			'liveTv.guideReloaded' => 'Données du guide rechargées',
+			'liveTv.allChannels' => 'Toutes les chaînes',
+			'liveTv.now' => 'Maintenant',
+			'liveTv.today' => 'Aujourd\'hui',
+			'liveTv.midnight' => 'Minuit',
+			'liveTv.overnight' => 'Nuit',
+			'liveTv.morning' => 'Matin',
+			'liveTv.daytime' => 'Journée',
+			'liveTv.evening' => 'Soirée',
+			'liveTv.lateNight' => 'Nuit tardive',
+			'liveTv.whatsOn' => 'En ce moment',
+			_ => null,
+		} ?? switch (path) {
+			'liveTv.watchChannel' => 'Regarder la chaîne',
 			'collections.title' => 'Collections',
 			'collections.collection' => 'Collection',
 			'collections.empty' => 'La collection est vide',
@@ -1655,8 +1786,6 @@ extension on TranslationsFr {
 			'playlists.errorDeleting' => 'Échec de suppression de playlist',
 			'playlists.errorLoading' => 'Échec de chargement de playlists',
 			'playlists.errorAdding' => 'Échec d\'ajout dans la playlist',
-			_ => null,
-		} ?? switch (path) {
 			'playlists.errorReordering' => 'Échec de réordonnacement d\'élément de playlist',
 			'playlists.errorRemoving' => 'Échec de suppression depuis la playlist',
 			'watchTogether.title' => 'Regarder ensemble',
@@ -1821,6 +1950,21 @@ extension on TranslationsFr {
 			'videoSettings.hdr' => 'HDR',
 			'videoSettings.audioOutput' => 'Sortie audio',
 			'videoSettings.performanceOverlay' => 'Superposition de performance',
+			'externalPlayer.title' => 'Lecteur externe',
+			'externalPlayer.useExternalPlayer' => 'Utiliser un lecteur externe',
+			'externalPlayer.useExternalPlayerDescription' => 'Ouvrir les vidéos dans une application externe au lieu du lecteur intégré',
+			'externalPlayer.selectPlayer' => 'Sélectionner le lecteur',
+			'externalPlayer.systemDefault' => 'Par défaut du système',
+			'externalPlayer.addCustomPlayer' => 'Ajouter un lecteur personnalisé',
+			'externalPlayer.playerName' => 'Nom du lecteur',
+			'externalPlayer.playerCommand' => 'Commande',
+			'externalPlayer.playerPackage' => 'Nom du paquet',
+			'externalPlayer.playerUrlScheme' => 'Schéma URL',
+			'externalPlayer.customPlayer' => 'Lecteur personnalisé',
+			'externalPlayer.off' => 'Désactivé',
+			'externalPlayer.launchFailed' => 'Impossible d\'ouvrir le lecteur externe',
+			'externalPlayer.appNotInstalled' => ({required Object name}) => '${name} n\'est pas installé',
+			'externalPlayer.playInExternalPlayer' => 'Lire dans un lecteur externe',
 			_ => null,
 		};
 	}

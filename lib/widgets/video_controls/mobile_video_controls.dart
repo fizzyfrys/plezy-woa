@@ -44,6 +44,12 @@ class MobileVideoControls extends StatelessWidget {
   /// Optional callback that returns a thumbnail URL for a given timestamp.
   final String Function(Duration time)? thumbnailUrlBuilder;
 
+  /// Whether this is a live TV stream
+  final bool isLive;
+
+  /// Channel name for live TV display
+  final String? liveChannelName;
+
   const MobileVideoControls({
     super.key,
     required this.player,
@@ -64,6 +70,8 @@ class MobileVideoControls extends StatelessWidget {
     this.canControl = true,
     this.hasFirstFrame,
     this.thumbnailUrlBuilder,
+    this.isLive = false,
+    this.liveChannelName,
   });
 
   @override
@@ -100,7 +108,7 @@ class MobileVideoControls extends StatelessWidget {
     return DesktopAppBarHelper.wrapWithGestureDetector(topBar, opaque: true);
   }
 
-  Widget _buildPlaybackControls(BuildContext context) {
+  Widget _buildPlaybackControls(BuildContext _) {
     // Hide all playback controls in host-only mode for non-host
     if (!canControl) {
       return const SizedBox.shrink();
@@ -109,21 +117,23 @@ class MobileVideoControls extends StatelessWidget {
     return FirstFrameGuard(hasFirstFrame: hasFirstFrame, builder: (context) => _buildPlaybackControlsContent(context));
   }
 
-  Widget _buildPlaybackControlsContent(BuildContext context) {
+  Widget _buildPlaybackControlsContent(BuildContext _) {
     return PlayPauseStreamBuilder(
       player: player,
       builder: (context, isPlaying) {
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Previous episode button (greyed out when unavailable)
-            CircularControlButton(
-              semanticLabel: t.videoControls.previousButton,
-              icon: Symbols.skip_previous_rounded,
-              iconSize: 48,
-              onPressed: onPrevious,
-            ),
-            const SizedBox(width: 24),
+            if (!isLive) ...[
+              // Previous episode button (greyed out when unavailable)
+              CircularControlButton(
+                semanticLabel: t.videoControls.previousButton,
+                icon: Symbols.skip_previous_rounded,
+                iconSize: 48,
+                onPressed: onPrevious,
+              ),
+              const SizedBox(width: 24),
+            ],
             CircularControlButton(
               semanticLabel: isPlaying ? t.videoControls.pauseButton : t.videoControls.playButton,
               icon: isPlaying ? Symbols.pause_rounded : Symbols.play_arrow_rounded,
@@ -138,21 +148,41 @@ class MobileVideoControls extends StatelessWidget {
                 }
               },
             ),
-            const SizedBox(width: 24),
-            // Next episode button (greyed out when unavailable)
-            CircularControlButton(
-              semanticLabel: t.videoControls.nextButton,
-              icon: Symbols.skip_next_rounded,
-              iconSize: 48,
-              onPressed: onNext,
-            ),
+            if (!isLive) ...[
+              const SizedBox(width: 24),
+              // Next episode button (greyed out when unavailable)
+              CircularControlButton(
+                semanticLabel: t.videoControls.nextButton,
+                icon: Symbols.skip_next_rounded,
+                iconSize: 48,
+                onPressed: onNext,
+              ),
+            ],
           ],
         );
       },
     );
   }
 
-  Widget _buildBottomBar(BuildContext context) {
+  Widget _buildBottomBar(BuildContext _) {
+    if (isLive) {
+      // For live TV, show channel name instead of timeline
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(color: Colors.red, borderRadius: const BorderRadius.all(Radius.circular(4))),
+              child: Text(
+                t.liveTv.live,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return FirstFrameGuard(hasFirstFrame: hasFirstFrame, builder: (context) => _buildBottomBarContent(context));
   }
 

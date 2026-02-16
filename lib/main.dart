@@ -90,7 +90,7 @@ void main() async {
 
   // Initialize TV detection and PiP service for Android
   if (Platform.isAndroid) {
-    futures.add(TvDetectionService.getInstance().then((_) {}));
+    futures.add(TvDetectionService.getInstance());
     // Initialize PiP service to listen for PiP state changes
     PipService();
   }
@@ -99,7 +99,7 @@ void main() async {
   futures.add(MacOSTitlebarService.setupCustomTitlebar());
 
   // Initialize storage service
-  futures.add(StorageService.getInstance().then((_) {}));
+  futures.add(StorageService.getInstance());
 
   // Initialize language codes for track selection
   futures.add(LanguageCodes.initialize());
@@ -236,6 +236,9 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
         // App came back to foreground - trigger sync check and start new session
         _offlineWatchSyncService.onAppResumed();
         InAppReviewService.instance.startSession();
+        // Re-probe servers — mobile OS may have dropped TCP connections during doze/sleep
+        _serverManager.checkServerHealth();
+        _serverManager.reconnectOfflineServers();
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
         // App went to background or is closing - end session

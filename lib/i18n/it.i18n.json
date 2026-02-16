@@ -46,7 +46,12 @@
     "settings": "Impostazioni",
     "mute": "Muto",
     "ok": "OK",
-    "loading": "Caricamento..."
+    "loading": "Caricamento...",
+    "reconnect": "Riconnetti",
+    "exitConfirmTitle": "Uscire dall'app?",
+    "exitConfirmMessage": "Sei sicuro di voler uscire?",
+    "dontAskAgain": "Non chiedere più",
+    "exit": "Esci"
   },
   "screens": {
     "licenses": "Licenze",
@@ -185,7 +190,9 @@
     "matchContentFrameRate": "Adatta frequenza fotogrammi",
     "matchContentFrameRateDescription": "Regola la frequenza di aggiornamento del display in base al contenuto video, riducendo i tremolii e risparmiando batteria",
     "requireProfileSelectionOnOpen": "Chiedi profilo all'apertura",
-    "requireProfileSelectionOnOpenDescription": "Mostra la selezione del profilo ogni volta che l'app viene aperta"
+    "requireProfileSelectionOnOpenDescription": "Mostra la selezione del profilo ogni volta che l'app viene aperta",
+    "confirmExitOnBack": "Conferma prima di uscire",
+    "confirmExitOnBackDescription": "Mostra una finestra di conferma quando si preme indietro per uscire dall'app"
   },
   "search": {
     "hint": "Cerca film. spettacoli, musica...",
@@ -273,6 +280,7 @@
   },
   "tooltips": {
     "shufflePlay": "Riproduzione casuale",
+    "playTrailer": "Riproduci trailer",
     "markAsWatched": "Segna come visto",
     "markAsUnwatched": "Segna come non visto"
   },
@@ -419,6 +427,7 @@
     "playEpisode": "S${season}E${episode}",
     "overview": "Panoramica",
     "cast": "Attori",
+    "extras": "Trailer ed Extra",
     "seasons": "Stagioni",
     "studio": "Studio",
     "rating": "Classificazione",
@@ -527,7 +536,47 @@
   },
   "navigation": {
     "libraries": "Librerie",
-    "downloads": "Download"
+    "downloads": "Download",
+    "liveTv": "TV in diretta"
+  },
+  "liveTv": {
+    "title": "TV in diretta",
+    "channels": "Canali",
+    "guide": "Guida",
+    "recordings": "Registrazioni",
+    "subscriptions": "Regole di registrazione",
+    "scheduled": "Programmati",
+    "noChannels": "Nessun canale disponibile",
+    "noDvr": "Nessun DVR configurato su nessun server",
+    "tuneFailed": "Impossibile sintonizzare il canale",
+    "loading": "Caricamento canali...",
+    "nowPlaying": "In riproduzione",
+    "record": "Registra",
+    "recordSeries": "Registra serie",
+    "cancelRecording": "Annulla registrazione",
+    "deleteSubscription": "Elimina regola di registrazione",
+    "deleteSubscriptionConfirm": "Sei sicuro di voler eliminare questa regola di registrazione?",
+    "subscriptionDeleted": "Regola di registrazione eliminata",
+    "noPrograms": "Nessun dato di programma disponibile",
+    "noRecordings": "Nessuna registrazione programmata",
+    "noSubscriptions": "Nessuna regola di registrazione",
+    "channelNumber": "Canale ${number}",
+    "live": "IN DIRETTA",
+    "hd": "HD",
+    "premiere": "NUOVO",
+    "reloadGuide": "Ricarica guida",
+    "guideReloaded": "Dati della guida ricaricati",
+    "allChannels": "Tutti i canali",
+    "now": "Ora",
+    "today": "Oggi",
+    "midnight": "Mezzanotte",
+    "overnight": "Notte",
+    "morning": "Mattina",
+    "daytime": "Giorno",
+    "evening": "Sera",
+    "lateNight": "Notte tarda",
+    "whatsOn": "In onda ora",
+    "watchChannel": "Guarda canale"
   },
   "downloads": {
     "title": "Download",
@@ -758,5 +807,22 @@
     "hdr": "HDR",
     "audioOutput": "Uscita audio",
     "performanceOverlay": "Overlay prestazioni"
+  },
+  "externalPlayer": {
+    "title": "Lettore esterno",
+    "useExternalPlayer": "Usa lettore esterno",
+    "useExternalPlayerDescription": "Apri i video in un'app esterna invece del lettore integrato",
+    "selectPlayer": "Seleziona lettore",
+    "systemDefault": "Predefinito di sistema",
+    "addCustomPlayer": "Aggiungi lettore personalizzato",
+    "playerName": "Nome lettore",
+    "playerCommand": "Comando",
+    "playerPackage": "Nome pacchetto",
+    "playerUrlScheme": "Schema URL",
+    "customPlayer": "Lettore personalizzato",
+    "off": "Disattivato",
+    "launchFailed": "Impossibile aprire il lettore esterno",
+    "appNotInstalled": "${name} non è installato",
+    "playInExternalPlayer": "Riproduci in lettore esterno"
   }
 }

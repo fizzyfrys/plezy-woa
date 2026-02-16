@@ -37,6 +37,11 @@ abstract class PlayerBase with PlayerStreamControllersMixin implements Player {
 
   StreamSubscription? _eventSubscription;
   bool _disposed = false;
+  final _throttleSw = Stopwatch()..start();
+  int _lastEmitMs = 0;
+  int _positionMs = 0;
+  int _nextPropId = 0;
+  final Map<int, String> _propIdToName = {};
 
   /// Whether the player has been initialized.
   /// Subclasses should set this to true after initialization.
@@ -89,16 +94,31 @@ abstract class PlayerBase with PlayerStreamControllersMixin implements Player {
     );
   }
 
+  /// Observes a property on the native player and assigns it a compact propId
+  /// for efficient event channel communication.
+  @protected
+  Future<void> observeProperty(String name, String format) async {
+    final propId = _nextPropId++;
+    _propIdToName[propId] = name;
+    await methodChannel.invokeMethod('observeProperty', {
+      'name': name,
+      'format': format,
+      'id': propId,
+    });
+  }
+
   void _handleEvent(dynamic event) {
-    if (event is! Map) return;
-
-    final type = event['type'] as String?;
-    final name = event['name'] as String?;
-
-    if (type == 'property' && name != null) {
-      handlePropertyChange(name, event['value']);
-    } else if (type == 'event' && name != null) {
-      handlePlayerEvent(name, event['data'] as Map?);
+    if (event is List && event.length == 2) {
+      final name = _propIdToName[event[0]];
+      if (name != null) {
+        handlePropertyChange(name, event[1]);
+      }
+    } else if (event is Map) {
+      final type = event['type'] as String?;
+      final name = event['name'] as String?;
+      if (type == 'event' && name != null) {
+        handlePlayerEvent(name, event['data'] as Map?);
+      }
     }
   }
 
@@ -126,9 +146,16 @@ abstract class PlayerBase with PlayerStreamControllersMixin implements Player {
 
       case 'time-pos':
         if (value is num) {
-          final position = Duration(milliseconds: (value * 1000).toInt());
-          _state = _state.copyWith(position: position);
-          positionController.add(position);
+          _positionMs = (value * 1000).round();
+          // Only allocate Duration + copyWith + emit at ~4Hz (250ms).
+          // Raw int is stored every tick so synchronous reads via _positionMs stay current.
+          final nowMs = _throttleSw.elapsedMilliseconds;
+          if (nowMs - _lastEmitMs >= 250) {
+            _lastEmitMs = nowMs;
+            final pos = Duration(milliseconds: _positionMs);
+            _state = _state.copyWith(position: pos);
+            positionController.add(pos);
+          }
         }
         break;
 
@@ -298,11 +325,9 @@ abstract class PlayerBase with PlayerStreamControllersMixin implements Player {
     final id = trackId?.toString();
     SubtitleTrack? selectedTrack;
 
-    if (id == null || id == 'no') {
-      selectedTrack = SubtitleTrack.off;
-    } else {
-      selectedTrack = _state.tracks.subtitle.cast<SubtitleTrack?>().firstWhere((t) => t?.id == id, orElse: () => null);
-    }
+    selectedTrack = (id == null || id == 'no')
+        ? SubtitleTrack.off
+        : _state.tracks.subtitle.cast<SubtitleTrack?>().firstWhere((t) => t?.id == id, orElse: () => null);
 
     _state = _state.copyWith(track: _state.track.copyWith(subtitle: selectedTrack));
     trackController.add(_state.track);
@@ -347,19 +372,16 @@ abstract class PlayerBase with PlayerStreamControllersMixin implements Player {
   }
 
   @override
-  Future<void> updateFrame() async {
-    // Default no-op, overridden by platforms that need it
-  }
+  // ignore: no-empty-block - base no-op, overridden by platform subclasses
+  Future<void> updateFrame() async {}
 
   @override
-  Future<void> setVideoFrameRate(double fps, int durationMs) async {
-    // Default no-op, overridden by platforms that support it
-  }
+  // ignore: no-empty-block - base no-op, overridden by platform subclasses
+  Future<void> setVideoFrameRate(double fps, int durationMs) async {}
 
   @override
-  Future<void> clearVideoFrameRate() async {
-    // Default no-op, overridden by platforms that support it
-  }
+  // ignore: no-empty-block - base no-op, overridden by platform subclasses
+  Future<void> clearVideoFrameRate() async {}
 
   @override
   Future<bool> requestAudioFocus() async {
@@ -368,19 +390,16 @@ abstract class PlayerBase with PlayerStreamControllersMixin implements Player {
   }
 
   @override
-  Future<void> abandonAudioFocus() async {
-    // Default no-op, overridden by Android
-  }
+  // ignore: no-empty-block - base no-op, overridden by platform subclasses
+  Future<void> abandonAudioFocus() async {}
 
   @override
-  Future<void> setAudioDevice(AudioDevice device) async {
-    // Default no-op, overridden by platforms that support it
-  }
+  // ignore: no-empty-block - base no-op, overridden by platform subclasses
+  Future<void> setAudioDevice(AudioDevice device) async {}
 
   @override
-  Future<void> setAudioPassthrough(bool enabled) async {
-    // Default no-op, overridden by platforms that support it
-  }
+  // ignore: no-empty-block - base no-op, overridden by platform subclasses
+  Future<void> setAudioPassthrough(bool enabled) async {}
 
   // ============================================
   // Lifecycle

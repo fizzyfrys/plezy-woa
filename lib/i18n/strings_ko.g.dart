@@ -65,6 +65,7 @@ class TranslationsKo with BaseTranslations<AppLocale, Translations> implements T
 	@override late final _TranslationsLogsKo logs = _TranslationsLogsKo._(_root);
 	@override late final _TranslationsLicensesKo licenses = _TranslationsLicensesKo._(_root);
 	@override late final _TranslationsNavigationKo navigation = _TranslationsNavigationKo._(_root);
+	@override late final _TranslationsLiveTvKo liveTv = _TranslationsLiveTvKo._(_root);
 	@override late final _TranslationsCollectionsKo collections = _TranslationsCollectionsKo._(_root);
 	@override late final _TranslationsPlaylistsKo playlists = _TranslationsPlaylistsKo._(_root);
 	@override late final _TranslationsWatchTogetherKo watchTogether = _TranslationsWatchTogetherKo._(_root);
@@ -72,6 +73,7 @@ class TranslationsKo with BaseTranslations<AppLocale, Translations> implements T
 	@override late final _TranslationsShadersKo shaders = _TranslationsShadersKo._(_root);
 	@override late final _TranslationsCompanionRemoteKo companionRemote = _TranslationsCompanionRemoteKo._(_root);
 	@override late final _TranslationsVideoSettingsKo videoSettings = _TranslationsVideoSettingsKo._(_root);
+	@override late final _TranslationsExternalPlayerKo externalPlayer = _TranslationsExternalPlayerKo._(_root);
 }
 
 // Path: app
@@ -142,6 +144,11 @@ class _TranslationsCommonKo implements TranslationsCommonEn {
 	@override String get mute => '음소거';
 	@override String get ok => '확인';
 	@override String get loading => '로딩 중...';
+	@override String get reconnect => '다시 연결';
+	@override String get exitConfirmTitle => '앱을 종료하시겠습니까?';
+	@override String get exitConfirmMessage => '정말 종료하시겠습니까?';
+	@override String get dontAskAgain => '다시 묻지 않기';
+	@override String get exit => '종료';
 }
 
 // Path: screens
@@ -302,6 +309,8 @@ class _TranslationsSettingsKo implements TranslationsSettingsEn {
 	@override String get matchContentFrameRateDescription => '비디오 콘텐츠에 맞게 디스플레이 주사율을 조정하여 떨림을 줄이고 배터리를 절약합니다';
 	@override String get requireProfileSelectionOnOpen => '앱 실행 시 프로필 선택';
 	@override String get requireProfileSelectionOnOpenDescription => '앱을 열 때마다 프로필 선택 화면을 표시합니다';
+	@override String get confirmExitOnBack => '종료 전 확인';
+	@override String get confirmExitOnBackDescription => '뒤로 버튼을 눌러 앱을 종료할 때 확인 대화상자를 표시합니다';
 }
 
 // Path: search
@@ -418,6 +427,7 @@ class _TranslationsTooltipsKo implements TranslationsTooltipsEn {
 
 	// Translations
 	@override String get shufflePlay => '무작위 재생';
+	@override String get playTrailer => '예고편 재생';
 	@override String get markAsWatched => '시청 완료로 표시';
 	@override String get markAsUnwatched => '시청 안 함으로 표시';
 }
@@ -607,6 +617,7 @@ class _TranslationsDiscoverKo implements TranslationsDiscoverEn {
 	@override String playEpisode({required Object season, required Object episode}) => 'S${season}E${episode}';
 	@override String get overview => '개요';
 	@override String get cast => '출연진';
+	@override String get extras => '예고편 및 부가영상';
 	@override String get seasons => '시즌 수';
 	@override String get studio => '제작사';
 	@override String get rating => '연령 등급';
@@ -760,6 +771,53 @@ class _TranslationsNavigationKo implements TranslationsNavigationEn {
 	// Translations
 	@override String get libraries => '미디어 라이브러리';
 	@override String get downloads => '다운로드';
+	@override String get liveTv => '실시간 TV';
+}
+
+// Path: liveTv
+class _TranslationsLiveTvKo implements TranslationsLiveTvEn {
+	_TranslationsLiveTvKo._(this._root);
+
+	final TranslationsKo _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => '실시간 TV';
+	@override String get channels => '채널';
+	@override String get guide => '편성표';
+	@override String get recordings => '녹화';
+	@override String get subscriptions => '녹화 규칙';
+	@override String get scheduled => '예약됨';
+	@override String get noChannels => '사용 가능한 채널이 없습니다';
+	@override String get noDvr => '서버에 DVR이 구성되어 있지 않습니다';
+	@override String get tuneFailed => '채널 튜닝에 실패했습니다';
+	@override String get loading => '채널 로딩 중...';
+	@override String get nowPlaying => '현재 재생 중';
+	@override String get record => '녹화';
+	@override String get recordSeries => '시리즈 녹화';
+	@override String get cancelRecording => '녹화 취소';
+	@override String get deleteSubscription => '녹화 규칙 삭제';
+	@override String get deleteSubscriptionConfirm => '이 녹화 규칙을 삭제하시겠습니까?';
+	@override String get subscriptionDeleted => '녹화 규칙이 삭제되었습니다';
+	@override String get noPrograms => '프로그램 데이터가 없습니다';
+	@override String get noRecordings => '예약된 녹화가 없습니다';
+	@override String get noSubscriptions => '녹화 규칙이 없습니다';
+	@override String channelNumber({required Object number}) => '채널 ${number}';
+	@override String get live => '실시간';
+	@override String get hd => 'HD';
+	@override String get premiere => '신규';
+	@override String get reloadGuide => '편성표 새로고침';
+	@override String get guideReloaded => '편성표 데이터가 새로고침되었습니다';
+	@override String get allChannels => '전체 채널';
+	@override String get now => '지금';
+	@override String get today => '오늘';
+	@override String get midnight => '자정';
+	@override String get overnight => '심야';
+	@override String get morning => '아침';
+	@override String get daytime => '낮';
+	@override String get evening => '저녁';
+	@override String get lateNight => '심야 방송';
+	@override String get whatsOn => '지금 방송 중';
+	@override String get watchChannel => '채널 시청';
 }
 
 // Path: collections
@@ -959,6 +1017,30 @@ class _TranslationsVideoSettingsKo implements TranslationsVideoSettingsEn {
 	@override String get hdr => 'HDR';
 	@override String get audioOutput => '오디오 출력';
 	@override String get performanceOverlay => '성능 오버레이';
+}
+
+// Path: externalPlayer
+class _TranslationsExternalPlayerKo implements TranslationsExternalPlayerEn {
+	_TranslationsExternalPlayerKo._(this._root);
+
+	final TranslationsKo _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => '외부 플레이어';
+	@override String get useExternalPlayer => '외부 플레이어 사용';
+	@override String get useExternalPlayerDescription => '내장 플레이어 대신 외부 앱에서 동영상 열기';
+	@override String get selectPlayer => '플레이어 선택';
+	@override String get systemDefault => '시스템 기본값';
+	@override String get addCustomPlayer => '사용자 정의 플레이어 추가';
+	@override String get playerName => '플레이어 이름';
+	@override String get playerCommand => '명령어';
+	@override String get playerPackage => '패키지 이름';
+	@override String get playerUrlScheme => 'URL 스킴';
+	@override String get customPlayer => '사용자 정의 플레이어';
+	@override String get off => '꺼짐';
+	@override String get launchFailed => '외부 플레이어를 열 수 없습니다';
+	@override String appNotInstalled({required Object name}) => '${name}이(가) 설치되어 있지 않습니다';
+	@override String get playInExternalPlayer => '외부 플레이어에서 재생';
 }
 
 // Path: hotkeys.actions
@@ -1186,6 +1268,11 @@ extension on TranslationsKo {
 			'common.mute' => '음소거',
 			'common.ok' => '확인',
 			'common.loading' => '로딩 중...',
+			'common.reconnect' => '다시 연결',
+			'common.exitConfirmTitle' => '앱을 종료하시겠습니까?',
+			'common.exitConfirmMessage' => '정말 종료하시겠습니까?',
+			'common.dontAskAgain' => '다시 묻지 않기',
+			'common.exit' => '종료',
 			'screens.licenses' => '라이선스',
 			'screens.switchProfile' => '프로필 전환',
 			'screens.subtitleStyling' => '자막 스타일 설정',
@@ -1319,6 +1406,8 @@ extension on TranslationsKo {
 			'settings.matchContentFrameRateDescription' => '비디오 콘텐츠에 맞게 디스플레이 주사율을 조정하여 떨림을 줄이고 배터리를 절약합니다',
 			'settings.requireProfileSelectionOnOpen' => '앱 실행 시 프로필 선택',
 			'settings.requireProfileSelectionOnOpenDescription' => '앱을 열 때마다 프로필 선택 화면을 표시합니다',
+			'settings.confirmExitOnBack' => '종료 전 확인',
+			'settings.confirmExitOnBackDescription' => '뒤로 버튼을 눌러 앱을 종료할 때 확인 대화상자를 표시합니다',
 			'search.hint' => '영화, 시리즈, 음악 등을 검색하세요...',
 			'search.tryDifferentTerm' => '다른 검색어를 시도해 보세요',
 			'search.searchYourMedia' => '미디어 검색',
@@ -1390,6 +1479,7 @@ extension on TranslationsKo {
 			'accessibility.mediaCardUnwatched' => '미시청',
 			'accessibility.tapToPlay' => '터치 하여 재생',
 			'tooltips.shufflePlay' => '무작위 재생',
+			'tooltips.playTrailer' => '예고편 재생',
 			'tooltips.markAsWatched' => '시청 완료로 표시',
 			'tooltips.markAsUnwatched' => '시청 안 함으로 표시',
 			'videoControls.audioLabel' => '오디오',
@@ -1520,6 +1610,7 @@ extension on TranslationsKo {
 			'discover.playEpisode' => ({required Object season, required Object episode}) => 'S${season}E${episode}',
 			'discover.overview' => '개요',
 			'discover.cast' => '출연진',
+			'discover.extras' => '예고편 및 부가영상',
 			'discover.seasons' => '시즌 수',
 			'discover.studio' => '제작사',
 			'discover.rating' => '연령 등급',
@@ -1609,6 +1700,46 @@ extension on TranslationsKo {
 			'licenses.licensesCount' => ({required Object count}) => '${count} 개의 라이선스',
 			'navigation.libraries' => '미디어 라이브러리',
 			'navigation.downloads' => '다운로드',
+			'navigation.liveTv' => '실시간 TV',
+			'liveTv.title' => '실시간 TV',
+			'liveTv.channels' => '채널',
+			'liveTv.guide' => '편성표',
+			'liveTv.recordings' => '녹화',
+			'liveTv.subscriptions' => '녹화 규칙',
+			'liveTv.scheduled' => '예약됨',
+			'liveTv.noChannels' => '사용 가능한 채널이 없습니다',
+			'liveTv.noDvr' => '서버에 DVR이 구성되어 있지 않습니다',
+			'liveTv.tuneFailed' => '채널 튜닝에 실패했습니다',
+			'liveTv.loading' => '채널 로딩 중...',
+			'liveTv.nowPlaying' => '현재 재생 중',
+			'liveTv.record' => '녹화',
+			'liveTv.recordSeries' => '시리즈 녹화',
+			'liveTv.cancelRecording' => '녹화 취소',
+			'liveTv.deleteSubscription' => '녹화 규칙 삭제',
+			'liveTv.deleteSubscriptionConfirm' => '이 녹화 규칙을 삭제하시겠습니까?',
+			'liveTv.subscriptionDeleted' => '녹화 규칙이 삭제되었습니다',
+			'liveTv.noPrograms' => '프로그램 데이터가 없습니다',
+			'liveTv.noRecordings' => '예약된 녹화가 없습니다',
+			'liveTv.noSubscriptions' => '녹화 규칙이 없습니다',
+			'liveTv.channelNumber' => ({required Object number}) => '채널 ${number}',
+			'liveTv.live' => '실시간',
+			'liveTv.hd' => 'HD',
+			'liveTv.premiere' => '신규',
+			'liveTv.reloadGuide' => '편성표 새로고침',
+			'liveTv.guideReloaded' => '편성표 데이터가 새로고침되었습니다',
+			'liveTv.allChannels' => '전체 채널',
+			'liveTv.now' => '지금',
+			'liveTv.today' => '오늘',
+			'liveTv.midnight' => '자정',
+			'liveTv.overnight' => '심야',
+			'liveTv.morning' => '아침',
+			'liveTv.daytime' => '낮',
+			'liveTv.evening' => '저녁',
+			'liveTv.lateNight' => '심야 방송',
+			'liveTv.whatsOn' => '지금 방송 중',
+			_ => null,
+		} ?? switch (path) {
+			'liveTv.watchChannel' => '채널 시청',
 			'collections.title' => '컬렉션',
 			'collections.collection' => '컬렉션',
 			'collections.empty' => '컬렉션이 비어 있습니다',
@@ -1655,8 +1786,6 @@ extension on TranslationsKo {
 			'playlists.errorDeleting' => '재생 목록 삭제 실패',
 			'playlists.errorLoading' => '재생 목록 로드 실패',
 			'playlists.errorAdding' => '재생 목록에 추가 실패',
-			_ => null,
-		} ?? switch (path) {
 			'playlists.errorReordering' => '재생 목록 항목 재정렬 실패',
 			'playlists.errorRemoving' => '재생 목록에서 제거 실패',
 			'watchTogether.title' => '함께 보기',
@@ -1821,6 +1950,21 @@ extension on TranslationsKo {
 			'videoSettings.hdr' => 'HDR',
 			'videoSettings.audioOutput' => '오디오 출력',
 			'videoSettings.performanceOverlay' => '성능 오버레이',
+			'externalPlayer.title' => '외부 플레이어',
+			'externalPlayer.useExternalPlayer' => '외부 플레이어 사용',
+			'externalPlayer.useExternalPlayerDescription' => '내장 플레이어 대신 외부 앱에서 동영상 열기',
+			'externalPlayer.selectPlayer' => '플레이어 선택',
+			'externalPlayer.systemDefault' => '시스템 기본값',
+			'externalPlayer.addCustomPlayer' => '사용자 정의 플레이어 추가',
+			'externalPlayer.playerName' => '플레이어 이름',
+			'externalPlayer.playerCommand' => '명령어',
+			'externalPlayer.playerPackage' => '패키지 이름',
+			'externalPlayer.playerUrlScheme' => 'URL 스킴',
+			'externalPlayer.customPlayer' => '사용자 정의 플레이어',
+			'externalPlayer.off' => '꺼짐',
+			'externalPlayer.launchFailed' => '외부 플레이어를 열 수 없습니다',
+			'externalPlayer.appNotInstalled' => ({required Object name}) => '${name}이(가) 설치되어 있지 않습니다',
+			'externalPlayer.playInExternalPlayer' => '외부 플레이어에서 재생',
 			_ => null,
 		};
 	}

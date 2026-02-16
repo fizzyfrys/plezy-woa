@@ -77,6 +77,9 @@ class VideoSettingsSheet extends StatefulWidget {
   /// Whether the user can control playback (false hides speed option in host-only mode).
   final bool canControl;
 
+  /// Whether this is a live TV stream (hides speed settings).
+  final bool isLive;
+
   /// Optional shader service for MPV shader control
   final ShaderService? shaderService;
 
@@ -89,6 +92,7 @@ class VideoSettingsSheet extends StatefulWidget {
     required this.audioSyncOffset,
     required this.subtitleSyncOffset,
     this.canControl = true,
+    this.isLive = false,
     this.shaderService,
     this.onShaderChanged,
   });
@@ -101,6 +105,7 @@ class VideoSettingsSheet extends StatefulWidget {
     VoidCallback? onOpen,
     VoidCallback? onClose,
     bool canControl = true,
+    bool isLive = false,
     ShaderService? shaderService,
     VoidCallback? onShaderChanged,
   }) {
@@ -113,6 +118,7 @@ class VideoSettingsSheet extends StatefulWidget {
         audioSyncOffset: audioSyncOffset,
         subtitleSyncOffset: subtitleSyncOffset,
         canControl: canControl,
+        isLive: isLive,
         shaderService: shaderService,
         onShaderChanged: onShaderChanged,
       ),
@@ -149,6 +155,7 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
 
   Future<void> _loadSettings() async {
     final settings = await SettingsService.getInstance();
+    if (!mounted) return;
     setState(() {
       _enableHDR = settings.getEnableHDR();
       _showPerformanceOverlay = settings.getShowPerformanceOverlay();
@@ -160,6 +167,7 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
     final newValue = !_enableHDR;
     final settings = await SettingsService.getInstance();
     await settings.setEnableHDR(newValue);
+    if (!mounted) return;
     setState(() {
       _enableHDR = newValue;
     });
@@ -171,6 +179,7 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
     final newValue = !_showPerformanceOverlay;
     final settings = await SettingsService.getInstance();
     await settings.setShowPerformanceOverlay(newValue);
+    if (!mounted) return;
     setState(() {
       _showPerformanceOverlay = newValue;
     });
@@ -180,6 +189,7 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
     final newValue = !_autoPlayNextEpisode;
     final settings = await SettingsService.getInstance();
     await settings.setAutoPlayNextEpisode(newValue);
+    if (!mounted) return;
     setState(() {
       _autoPlayNextEpisode = newValue;
     });
@@ -253,8 +263,8 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
 
     return ListView(
       children: [
-        // Playback Speed - only show if user can control playback
-        if (widget.canControl)
+        // Playback Speed - hidden for live TV and when user cannot control playback
+        if (widget.canControl && !widget.isLive)
           StreamBuilder<double>(
             stream: widget.player.streams.rate,
             initialData: widget.player.state.rate,
@@ -276,7 +286,7 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
           builder: (context, _) {
             final isActive = sleepTimer.isActive;
             return _SettingsMenuItem(
-              icon: isActive ? Symbols.bedtime_rounded : Symbols.bedtime_rounded,
+              icon: Symbols.bedtime_rounded,
               title: t.videoSettings.sleepTimer,
               valueText: _formatSleepTimer(sleepTimer),
               isHighlighted: isActive,
@@ -427,6 +437,7 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
       onOffsetChanged: (offset) async {
         final settings = await SettingsService.getInstance();
         await settings.setAudioSyncOffset(offset);
+        if (!mounted) return;
         setState(() {
           _audioSyncOffset = offset;
         });
@@ -443,6 +454,7 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
       onOffsetChanged: (offset) async {
         final settings = await SettingsService.getInstance();
         await settings.setSubtitleSyncOffset(offset);
+        if (!mounted) return;
         setState(() {
           _subtitleSyncOffset = offset;
         });
@@ -550,9 +562,11 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
       child: BaseVideoControlSheet(
         title: _getTitle(),
         icon: _getIcon(),
-        iconColor: isIconActive
-            ? Colors.amber
-            : (_currentView == _SettingsView.shader && isShaderActive ? Colors.amber : Colors.white),
+        iconColor: () {
+          if (isIconActive) return Colors.amber;
+          if (_currentView == _SettingsView.shader && isShaderActive) return Colors.amber;
+          return Colors.white;
+        }(),
         onBack: _currentView != _SettingsView.menu ? _navigateBack : null,
         child: () {
           switch (_currentView) {

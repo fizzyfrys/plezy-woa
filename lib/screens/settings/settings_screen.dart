@@ -31,6 +31,7 @@ import '../../providers/companion_remote_provider.dart';
 import '../../screens/companion_remote/mobile_remote_screen.dart';
 import '../../widgets/companion_remote/remote_session_dialog.dart';
 import 'about_screen.dart';
+import 'external_player_screen.dart';
 import 'logs_screen.dart';
 import 'mpv_config_screen.dart';
 import 'subtitle_styling_screen.dart';
@@ -67,7 +68,9 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
   static const _kAlwaysKeepSidebarOpen = 'always_keep_sidebar_open';
   static const _kShowUnwatchedCount = 'show_unwatched_count';
   static const _kRequireProfileSelectionOnOpen = 'require_profile_selection_on_open';
+  static const _kConfirmExitOnBack = 'confirm_exit_on_back';
   static const _kPlayerBackend = 'player_backend';
+  static const _kExternalPlayer = 'external_player';
   static const _kHardwareDecoding = 'hardware_decoding';
   static const _kMatchContentFrameRate = 'match_content_frame_rate';
   static const _kBufferSize = 'buffer_size';
@@ -115,6 +118,9 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
   bool _matchContentFrameRate = false;
   bool _useExoPlayer = true; // Android only: ExoPlayer vs MPV
   bool _requireProfileSelectionOnOpen = false;
+  bool _useExternalPlayer = false;
+  bool _confirmExitOnBack = true;
+  String _selectedExternalPlayerName = '';
 
   // Update checking state
   bool _isCheckingForUpdate = false;
@@ -125,6 +131,7 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
     super.initState();
     _focusTracker = FocusMemoryTracker(
       onFocusChanged: () {
+        // ignore: no-empty-block - setState triggers rebuild to update focus styling
         if (mounted) setState(() {});
       },
       debugLabelPrefix: 'settings',
@@ -149,7 +156,7 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
   }
 
   /// Handle key events for LEFT arrow → sidebar navigation
-  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+  KeyEventResult _handleKeyEvent(FocusNode _, KeyEvent event) {
     if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
       _navigateToSidebar();
       return KeyEventResult.handled;
@@ -163,6 +170,7 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
       _keyboardService = await KeyboardShortcutsService.getInstance();
     }
 
+    if (!mounted) return;
     setState(() {
       _enableDebugLogging = _settingsService.getEnableDebugLogging();
       _enableHardwareDecoding = _settingsService.getEnableHardwareDecoding();
@@ -182,6 +190,9 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
       _matchContentFrameRate = _settingsService.getMatchContentFrameRate();
       _useExoPlayer = _settingsService.getUseExoPlayer();
       _requireProfileSelectionOnOpen = _settingsService.getRequireProfileSelectionOnOpen();
+      _useExternalPlayer = _settingsService.getUseExternalPlayer();
+      _selectedExternalPlayerName = _settingsService.getSelectedExternalPlayer().name;
+      _confirmExitOnBack = _settingsService.getConfirmExitOnBack();
       _isLoading = false;
     });
   }
@@ -382,6 +393,18 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
               );
             },
           ),
+          if (PlatformDetector.isTV())
+            SwitchListTile(
+              focusNode: _focusTracker.get(_kConfirmExitOnBack),
+              secondary: const AppIcon(Symbols.exit_to_app_rounded, fill: 1),
+              title: Text(t.settings.confirmExitOnBack),
+              subtitle: Text(t.settings.confirmExitOnBackDescription),
+              value: _confirmExitOnBack,
+              onChanged: (value) async {
+                setState(() => _confirmExitOnBack = value);
+                await _settingsService.setConfirmExitOnBack(value);
+              },
+            ),
         ],
       ),
     );
@@ -410,6 +433,23 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
               trailing: const AppIcon(Symbols.chevron_right_rounded, fill: 1),
               onTap: () => _showPlayerBackendDialog(),
             ),
+          ListTile(
+            focusNode: _focusTracker.get(_kExternalPlayer),
+            leading: const AppIcon(Symbols.open_in_new_rounded, fill: 1),
+            title: Text(t.externalPlayer.title),
+            subtitle: Text(_useExternalPlayer ? _selectedExternalPlayerName : t.externalPlayer.off),
+            trailing: const AppIcon(Symbols.chevron_right_rounded, fill: 1),
+            onTap: () async {
+              await Navigator.push(context, MaterialPageRoute(builder: (context) => const ExternalPlayerScreen()));
+              // Reload to reflect any changes
+              final s = await settings.SettingsService.getInstance();
+              if (!mounted) return;
+              setState(() {
+                _useExternalPlayer = s.getUseExternalPlayer();
+                _selectedExternalPlayerName = s.getSelectedExternalPlayer().name;
+              });
+            },
+          ),
           SwitchListTile(
             focusNode: _focusTracker.get(_kHardwareDecoding),
             secondary: const AppIcon(Symbols.hardware_rounded, fill: 1),
@@ -541,7 +581,7 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
             ),
           const Divider(),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            padding: const EdgeInsets.only(left: 16, top: 8, right: 16),
             child: Text(
               t.settings.autoSkip,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -720,6 +760,7 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
         await DownloadStorageService.instance.refreshCustomPath();
 
         if (mounted) {
+          // ignore: no-empty-block - setState triggers rebuild to reflect new download path
           setState(() {});
           showSuccessSnackBar(context, t.settings.downloadLocationChanged);
         }
@@ -736,6 +777,7 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab {
     await DownloadStorageService.instance.refreshCustomPath();
 
     if (mounted) {
+      // ignore: no-empty-block - setState triggers rebuild to reflect reset path
       setState(() {});
       showAppSnackBar(context, t.settings.downloadLocationReset);
     }
@@ -1688,6 +1730,7 @@ class _KeyboardShortcutsScreenState extends State<_KeyboardShortcutsScreen> {
 
   Future<void> _loadHotkeys() async {
     await widget.keyboardService.refreshFromStorage();
+    if (!mounted) return;
     setState(() {
       _hotkeys = widget.keyboardService.hotkeys;
       _isLoading = false;
@@ -1735,8 +1778,8 @@ class _KeyboardShortcutsScreenState extends State<_KeyboardShortcutsScreen> {
                     trailing: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Theme.of(context).dividerColor),
-                        borderRadius: BorderRadius.circular(6),
+                        border: Border.fromBorderSide(BorderSide(color: Theme.of(context).dividerColor)),
+                        borderRadius: const BorderRadius.all(Radius.circular(6)),
                       ),
                       child: Text(
                         widget.keyboardService.formatHotkey(hotkey),

@@ -14,6 +14,7 @@ import '../mpv/mpv.dart';
 import '../mpv/player/player_android.dart';
 
 import '../../services/plex_client.dart';
+import '../models/livetv_channel.dart';
 import '../services/plex_api_cache.dart';
 import '../models/plex_media_version.dart';
 import '../models/plex_metadata.dart';
@@ -25,7 +26,7 @@ import '../providers/playback_state_provider.dart';
 import '../models/companion_remote/remote_command_type.dart';
 import '../providers/companion_remote_provider.dart';
 import '../services/companion_remote/companion_remote_receiver.dart';
-import '../services/macos_window_service.dart';
+import '../services/fullscreen_state_manager.dart';
 import '../services/discord_rpc_service.dart';
 import '../services/episode_navigation_service.dart';
 import '../services/media_controls_manager.dart';
@@ -33,6 +34,7 @@ import '../services/playback_initialization_service.dart';
 import '../services/playback_progress_tracker.dart';
 import '../services/offline_watch_sync_service.dart';
 import '../services/settings_service.dart';
+import '../services/sleep_timer_service.dart';
 import '../services/track_selection_service.dart';
 import '../services/video_filter_manager.dart';
 import '../services/video_pip_manager.dart';
@@ -67,6 +69,17 @@ class VideoPlayerScreen extends StatefulWidget {
   final int selectedMediaIndex;
   final bool isOffline;
 
+  // Live TV fields
+  final bool isLive;
+  final String? liveChannelName;
+  final String? liveStreamUrl;
+  final List<LiveTvChannel>? liveChannels;
+  final int? liveCurrentChannelIndex;
+  final String? liveDvrKey;
+  final PlexClient? liveClient;
+  final String? liveSessionIdentifier;
+  final String? liveSessionPath;
+
   const VideoPlayerScreen({
     super.key,
     required this.metadata,
@@ -74,6 +87,15 @@ class VideoPlayerScreen extends StatefulWidget {
     this.preferredSubtitleTrack,
     this.selectedMediaIndex = 0,
     this.isOffline = false,
+    this.isLive = false,
+    this.liveChannelName,
+    this.liveStreamUrl,
+    this.liveChannels,
+    this.liveCurrentChannelIndex,
+    this.liveDvrKey,
+    this.liveClient,
+    this.liveSessionIdentifier,
+    this.liveSessionPath,
   });
 
   @override
@@ -106,11 +128,22 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
   StreamSubscription<Duration>? _positionSubscription;
   StreamSubscription<void>? _playbackRestartSubscription;
   StreamSubscription<void>? _backendSwitchedSubscription;
+  StreamSubscription<void>? _sleepTimerSubscription;
   bool _isReplacingWithVideo = false; // Flag to skip orientation restoration during video-to-video navigation
   bool _isDisposingForNavigation = false;
   bool _waitingForExternalSubsTrackSelection = false;
   bool _isHandlingBack = false;
   bool _hasThumbnails = false;
+
+  // Live TV channel navigation
+  int _liveChannelIndex = -1;
+  String? _liveChannelName;
+  String? _liveSessionIdentifier;
+  String? _liveSessionPath;
+  Timer? _liveTimelineTimer;
+  DateTime? _livePlaybackStartTime;
+  String? _liveRatingKey;
+  int? _liveDurationMs;
 
   // Auto-play next episode
   Timer? _autoPlayTimer;
@@ -171,6 +204,12 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     _activeRatingKey = widget.metadata.ratingKey;
     _activeMediaIndex = widget.selectedMediaIndex;
 
+    // Initialize live TV channel tracking
+    _liveChannelIndex = widget.liveCurrentChannelIndex ?? -1;
+    _liveChannelName = widget.liveChannelName;
+    _liveSessionIdentifier = widget.liveSessionIdentifier;
+    _liveSessionPath = widget.liveSessionPath;
+
     // Initialize Play Next dialog focus nodes
     _playNextCancelFocusNode = FocusNode(debugLabel: 'PlayNextCancel');
     _playNextConfirmFocusNode = FocusNode(debugLabel: 'PlayNextConfirm');
@@ -218,6 +257,11 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
 
     // Wire companion remote playback callbacks
     _setupCompanionRemoteCallbacks();
+
+    // Exit the player when the sleep timer completes so the device can auto-lock
+    _sleepTimerSubscription = SleepTimerService().onCompleted.listen((_) {
+      if (mounted) _handleBackButton();
+    });
 
     // Initialize player asynchronously with buffer size from settings
     _initializePlayer();
@@ -647,6 +691,12 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
   Future<void> _initializeServices() async {
     if (!mounted || player == null) return;
 
+    // Live TV: send timeline heartbeats to keep transcode session alive
+    if (widget.isLive) {
+      _startLiveTimelineUpdates();
+      return;
+    }
+
     // Get client (null in offline mode)
     final client = widget.isOffline ? null : _getClientForMetadata(context);
 
@@ -756,6 +806,9 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     // Skip play queue in offline mode (requires server connection)
     if (widget.isOffline) return;
 
+    // Skip play queue for live TV (would interfere with tuner session)
+    if (widget.isLive) return;
+
     // Only create play queues for episodes
     if (!widget.metadata.isEpisode) {
       return;
@@ -796,12 +849,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
 
       if (playQueue != null && playQueue.items != null && playQueue.items!.isNotEmpty) {
         // Initialize playback state with the play queue
-        await playbackState.setPlaybackFromPlayQueue(
-          playQueue,
-          showRatingKey,
-          serverId: widget.metadata.serverId,
-          serverName: widget.metadata.serverName,
-        );
+        await playbackState.setPlaybackFromPlayQueue(playQueue, showRatingKey);
 
         // Set the client for loading more items
         playbackState.setClient(client);
@@ -815,7 +863,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
   }
 
   Future<void> _loadAdjacentEpisodes() async {
-    if (!mounted) return;
+    if (!mounted || widget.isLive) return;
 
     if (widget.isOffline) {
       // Offline mode: find next/previous from downloaded episodes
@@ -824,13 +872,9 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     }
 
     try {
-      // Use server-specific client for this metadata
-      final client = _getClientForMetadata(context);
-
       // Load adjacent episodes using the service
       final adjacentEpisodes = await _episodeNavigation.loadAdjacentEpisodes(
         context: context,
-        client: client,
         metadata: widget.metadata,
       );
 
@@ -885,6 +929,60 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
 
   Future<void> _startPlayback() async {
     if (!mounted) return;
+
+    // Live TV mode: bypass standard playback initialization
+    if (widget.isLive) {
+      try {
+        _hasFirstFrame.value = false;
+        await player!.requestAudioFocus();
+        await _setLiveStreamOptions();
+
+        String streamUrl;
+        if (widget.liveStreamUrl != null) {
+          streamUrl = widget.liveStreamUrl!;
+        } else {
+          // Tune channel inside the player (shows loading spinner while tuning)
+          final channels = widget.liveChannels;
+          final channelIndex = _liveChannelIndex;
+          if (channels == null || channelIndex < 0 || channelIndex >= channels.length) {
+            throw Exception('No channel to tune');
+          }
+          final channel = channels[channelIndex];
+          appLogger.d('Tune: dvrKey=${widget.liveDvrKey} channelKey=${channel.key}');
+          final client = widget.liveClient!;
+          final result = await client.tuneChannel(widget.liveDvrKey!, channel.key);
+          if (result == null) throw Exception('Failed to tune channel');
+
+          streamUrl = '${client.config.baseUrl}${result.streamPath}'.withPlexToken(client.config.token);
+
+          _liveSessionIdentifier = result.sessionIdentifier;
+          _liveSessionPath = result.sessionPath;
+          _liveRatingKey = result.metadata.ratingKey;
+          _liveDurationMs = result.metadata.duration;
+        }
+
+        _livePlaybackStartTime = DateTime.now();
+        await player!.open(Media(streamUrl, headers: const {'Accept-Language': 'en'}), play: true, isLive: true);
+
+        if (mounted) {
+          setState(() {
+            _availableVersions = [];
+            _currentMediaInfo = null;
+            _isPlayerInitialized = true;
+          });
+        }
+
+        _startLiveTimelineUpdates();
+      } catch (e) {
+        appLogger.e('Failed to start live TV playback', error: e);
+        _sendLiveTimeline('stopped');
+        if (mounted) {
+          showErrorSnackBar(context, e.toString());
+          _handleBackButton();
+        }
+      }
+      return;
+    }
 
     // Capture providers before async gaps
     final offlineWatchService = widget.isOffline ? context.read<OfflineWatchSyncService>() : null;
@@ -1016,23 +1114,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
           try {
             await _addExternalSubtitles(result.externalSubtitles);
           } finally {
-            if (player != null && mounted) {
-              await player!.play();
-              final pos = player!.state.position;
-              try {
-                await player!.seek(pos.inMilliseconds > 0 ? pos : Duration.zero);
-              } catch (e) {
-                appLogger.w('Non-critical seek after subtitle load failed', error: e);
-              }
-
-              // Fallback if playbackRestart doesn't fire
-              Future.delayed(const Duration(seconds: 3), () {
-                if (_waitingForExternalSubsTrackSelection && mounted) {
-                  _waitingForExternalSubsTrackSelection = false;
-                  _applyTrackSelection();
-                }
-              });
-            }
+            await _resumeAfterSubtitleLoad();
           }
         } else {
           _trackLoadingSubscription?.cancel();
@@ -1054,6 +1136,27 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
         showErrorSnackBar(context, t.messages.errorLoading(error: e.toString()));
       }
     }
+  }
+
+  /// Resume playback after external subtitles have been loaded (or failed to load).
+  Future<void> _resumeAfterSubtitleLoad() async {
+    if (player == null || !mounted) return;
+
+    await player!.play();
+    final pos = player!.state.position;
+    try {
+      await player!.seek(pos.inMilliseconds > 0 ? pos : Duration.zero);
+    } catch (e) {
+      appLogger.w('Non-critical seek after subtitle load failed', error: e);
+    }
+
+    // Fallback if playbackRestart doesn't fire
+    Future.delayed(const Duration(seconds: 3), () {
+      if (_waitingForExternalSubsTrackSelection && mounted) {
+        _waitingForExternalSubsTrackSelection = false;
+        _applyTrackSelection();
+      }
+    });
   }
 
   /// Start playback for offline/downloaded content
@@ -1278,10 +1381,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     // Store provider reference for use in dispose and notify remote
     try {
       _companionRemoteProvider = context.read<CompanionRemoteProvider>();
-      _companionRemoteProvider!.sendCommand(
-        RemoteCommandType.syncState,
-        data: {'playerActive': true},
-      );
+      _companionRemoteProvider!.sendCommand(RemoteCommandType.syncState, data: {'playerActive': true});
     } catch (_) {}
   }
 
@@ -1302,10 +1402,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     _savedOnHome = null;
 
     // Notify remote that player is no longer active
-    _companionRemoteProvider?.sendCommand(
-      RemoteCommandType.syncState,
-      data: {'playerActive': false},
-    );
+    _companionRemoteProvider?.sendCommand(RemoteCommandType.syncState, data: {'playerActive': false});
     _companionRemoteProvider = null;
   }
 
@@ -1343,23 +1440,15 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     _onAudioTrackChanged(next);
 
     if (mounted) {
-      final label = 'Audio: ${tlb.TrackLabelBuilder.buildAudioLabel(title: next.title, language: next.language, codec: next.codec, channelsCount: next.channelsCount, index: nextIndex)}';
+      final label =
+          'Audio: ${tlb.TrackLabelBuilder.buildAudioLabel(title: next.title, language: next.language, codec: next.codec, channelsCount: next.channelsCount, index: nextIndex)}';
       showAppSnackBar(context, label, duration: const Duration(seconds: 1));
     }
   }
 
   Future<void> _toggleFullscreen() async {
     if (PlatformDetector.isMobile(context)) return;
-    final isCurrentlyFullscreen = await windowManager.isFullScreen();
-    if (Platform.isMacOS) {
-      if (isCurrentlyFullscreen) {
-        await MacOSWindowService.exitFullscreen();
-      } else {
-        await MacOSWindowService.enterFullscreen();
-      }
-    } else {
-      await windowManager.setFullScreen(!isCurrentlyFullscreen);
-    }
+    await FullscreenStateManager().toggleFullscreen();
   }
 
   /// Exit fullscreen before leaving the player (Windows/Linux only).
@@ -1369,7 +1458,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     if (Platform.isWindows || Platform.isLinux) {
       final isFullscreen = await windowManager.isFullScreen();
       if (isFullscreen) {
-        await windowManager.setFullScreen(false);
+        await FullscreenStateManager().exitFullscreen();
         await Future.delayed(const Duration(milliseconds: 100));
       }
     }
@@ -1447,6 +1536,8 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     _progressTracker?.sendProgress('stopped');
     _progressTracker?.stopTracking();
     _progressTracker?.dispose();
+    _sendLiveTimeline('stopped');
+    _stopLiveTimelineUpdates();
 
     // Remove PiP state listener, clear callback, and dispose video filter manager
     _videoPIPManager?.isPipActive.removeListener(_onPipStateChanged);
@@ -1463,6 +1554,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
     _positionSubscription?.cancel();
     _playbackRestartSubscription?.cancel();
     _backendSwitchedSubscription?.cancel();
+    _sleepTimerSubscription?.cancel();
 
     // Cancel auto-play timer
     _autoPlayTimer?.cancel();
@@ -1569,6 +1661,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
       final settings = await SettingsService.getInstance();
       final autoPlayEnabled = settings.getAutoPlayNextEpisode();
 
+      if (!mounted) return;
       setState(() {
         _showPlayNextDialog = true;
         _autoPlayCountdown = autoPlayEnabled ? 5 : -1;
@@ -1644,6 +1737,145 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
 
     await _navigateToEpisode(_previousEpisode!);
   }
+
+  bool _isSwitchingChannel = false;
+
+  /// Switch to an adjacent live TV channel (delta: +1 for next, -1 for previous)
+  /// Start periodic timeline heartbeats for live TV transcode session.
+  void _startLiveTimelineUpdates() {
+    _liveTimelineTimer?.cancel();
+    _liveTimelineTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      final state = player?.state.playing == true ? 'playing' : 'paused';
+      _sendLiveTimeline(state);
+    });
+    // Send initial heartbeat immediately
+    _sendLiveTimeline('playing');
+  }
+
+  void _stopLiveTimelineUpdates() {
+    _liveTimelineTimer?.cancel();
+    _liveTimelineTimer = null;
+  }
+
+  Future<void> _sendLiveTimeline(String state) async {
+    final sessionId = _liveSessionIdentifier;
+    final sessionPath = _liveSessionPath;
+    if (sessionId == null || sessionPath == null) return;
+
+    final client = widget.liveClient;
+    if (client == null) return;
+
+    try {
+      // Use the program ratingKey from tune metadata, not the channel key
+      final ratingKey = _liveRatingKey ?? widget.metadata.ratingKey;
+
+      // playbackTime: wall-clock ms since playback started
+      final playbackTime = _livePlaybackStartTime != null
+          ? DateTime.now().difference(_livePlaybackStartTime!).inMilliseconds
+          : 0;
+
+      // For live TV, player position/duration are unreliable (often 0).
+      // Use playbackTime as time, and program duration from tune metadata.
+      final time = playbackTime;
+      final duration = _liveDurationMs ?? 0;
+
+      await client.updateLiveTimeline(
+        ratingKey: ratingKey,
+        sessionPath: sessionPath,
+        sessionIdentifier: sessionId,
+        state: state,
+        time: time,
+        duration: duration,
+        playbackTime: playbackTime,
+      );
+    } catch (e) {
+      appLogger.d('Live timeline update failed', error: e);
+    }
+  }
+
+  /// Configure MPV/FFmpeg options for live streaming resilience.
+  /// Enables automatic reconnection on EOF and network errors.
+  Future<void> _setLiveStreamOptions() async {
+    final p = player!;
+    // FFmpeg HTTP protocol reconnection
+    await p.setProperty('stream-lavf-o-append', 'reconnect=1');
+    await p.setProperty('stream-lavf-o-append', 'reconnect_at_eof=1');
+    await p.setProperty('stream-lavf-o-append', 'reconnect_streamed=1');
+    await p.setProperty('stream-lavf-o-append', 'reconnect_on_network_error=1');
+    await p.setProperty('stream-lavf-o-append', 'reconnect_delay_max=30');
+    // Demuxer: retry up to 1000 times on stream reload failures
+    await p.setProperty('demuxer-lavf-o', 'max_reload=1000');
+    await p.setProperty('force-seekable', 'no');
+  }
+
+  Future<void> _switchLiveChannel(int delta) async {
+    final channels = widget.liveChannels;
+    if (channels == null || channels.isEmpty) return;
+    if (_isSwitchingChannel) return; // debounce concurrent switches
+
+    final newIndex = _liveChannelIndex + delta;
+    if (newIndex < 0 || newIndex >= channels.length) return;
+
+    _isSwitchingChannel = true;
+
+    // Stop old session heartbeats and notify server
+    _stopLiveTimelineUpdates();
+    await _sendLiveTimeline('stopped');
+
+    final channel = channels[newIndex];
+    appLogger.d('Switching to channel: ${channel.displayName} (${channel.key})');
+
+    if (!mounted) return;
+    setState(() => _hasFirstFrame.value = false);
+
+    try {
+      // Look up the correct client/DVR for this channel's server
+      final multiServer = context.read<MultiServerProvider>();
+      final serverInfo =
+          multiServer.liveTvServers.where((s) => s.serverId == channel.serverId).firstOrNull ??
+          multiServer.liveTvServers.firstOrNull;
+
+      if (serverInfo == null) return;
+
+      final client = multiServer.getClientForServer(serverInfo.serverId);
+      if (client == null) return;
+
+      final result = await client.tuneChannel(serverInfo.dvrKey, channel.key);
+      if (result == null || !mounted) return;
+
+      final streamUrl = '${client.config.baseUrl}${result.streamPath}'.withPlexToken(client.config.token);
+
+      await _setLiveStreamOptions();
+      await player!.open(Media(streamUrl, headers: const {'Accept-Language': 'en'}), play: true, isLive: true);
+
+      _livePlaybackStartTime = DateTime.now();
+      _liveRatingKey = result.metadata.ratingKey;
+      _liveDurationMs = result.metadata.duration;
+
+      if (!mounted) return;
+      setState(() {
+        _liveChannelIndex = newIndex;
+        _liveChannelName = channel.displayName;
+        _liveSessionIdentifier = result.sessionIdentifier;
+        _liveSessionPath = result.sessionPath;
+      });
+
+      // Restart timeline heartbeats for the new session
+      _startLiveTimelineUpdates();
+    } catch (e) {
+      appLogger.e('Failed to switch channel', error: e);
+    } finally {
+      _isSwitchingChannel = false;
+    }
+  }
+
+  bool get _hasNextChannel =>
+      widget.isLive &&
+      widget.liveChannels != null &&
+      _liveChannelIndex >= 0 &&
+      _liveChannelIndex < (widget.liveChannels!.length - 1);
+
+  bool get _hasPreviousChannel => widget.isLive && widget.liveChannels != null && _liveChannelIndex > 0;
 
   void _startAutoPlayTimer() {
     _autoPlayTimer?.cancel();
@@ -2077,13 +2309,27 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
                       // Watch Together not available, default to can control
                     }
 
+                    VoidCallback? onNext;
+                    if (widget.isLive) {
+                      onNext = _hasNextChannel ? () => _switchLiveChannel(1) : null;
+                    } else {
+                      onNext = (_nextEpisode != null && _canNavigateEpisodes()) ? _playNext : null;
+                    }
+
+                    VoidCallback? onPrevious;
+                    if (widget.isLive) {
+                      onPrevious = _hasPreviousChannel ? () => _switchLiveChannel(-1) : null;
+                    } else {
+                      onPrevious = (_previousEpisode != null && _canNavigateEpisodes()) ? _playPrevious : null;
+                    }
+
                     return Video(
                       player: player!,
                       controls: (context) => plexVideoControlsBuilder(
                         player!,
                         widget.metadata,
-                        onNext: (_nextEpisode != null && _canNavigateEpisodes()) ? _playNext : null,
-                        onPrevious: (_previousEpisode != null && _canNavigateEpisodes()) ? _playPrevious : null,
+                        onNext: onNext,
+                        onPrevious: onPrevious,
                         availableVersions: _availableVersions,
                         selectedMediaIndex: widget.selectedMediaIndex,
                         onTogglePIPMode: _togglePIPMode,
@@ -2110,10 +2356,13 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
                         playNextFocusNode: _showPlayNextDialog ? _playNextConfirmFocusNode : null,
                         controlsVisible: _controlsVisible,
                         shaderService: _shaderService,
+                        // ignore: no-empty-block - setState triggers rebuild to reflect shader change
                         onShaderChanged: () => setState(() {}),
                         thumbnailUrlBuilder: _hasThumbnails && _currentMediaInfo?.partId != null
                             ? (Duration time) => _buildThumbnailUrl(context, time)!
                             : null,
+                        isLive: widget.isLive,
+                        liveChannelName: _liveChannelName,
                       ),
                     );
                   },
@@ -2139,7 +2388,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: const BorderRadius.all(Radius.circular(12)),
                           ),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -2340,7 +2589,10 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
                     child: Center(
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.all(Radius.circular(20)),
+                        ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -2350,7 +2602,10 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindin
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             ),
                             const SizedBox(width: 8),
-                            Text(t.watchTogether.reconnectingToHost, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                            Text(
+                              t.watchTogether.reconnectingToHost,
+                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                            ),
                           ],
                         ),
                       ),

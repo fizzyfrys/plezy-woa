@@ -65,6 +65,7 @@ class TranslationsZh with BaseTranslations<AppLocale, Translations> implements T
 	@override late final _TranslationsLogsZh logs = _TranslationsLogsZh._(_root);
 	@override late final _TranslationsLicensesZh licenses = _TranslationsLicensesZh._(_root);
 	@override late final _TranslationsNavigationZh navigation = _TranslationsNavigationZh._(_root);
+	@override late final _TranslationsLiveTvZh liveTv = _TranslationsLiveTvZh._(_root);
 	@override late final _TranslationsDownloadsZh downloads = _TranslationsDownloadsZh._(_root);
 	@override late final _TranslationsPlaylistsZh playlists = _TranslationsPlaylistsZh._(_root);
 	@override late final _TranslationsCollectionsZh collections = _TranslationsCollectionsZh._(_root);
@@ -72,6 +73,7 @@ class TranslationsZh with BaseTranslations<AppLocale, Translations> implements T
 	@override late final _TranslationsShadersZh shaders = _TranslationsShadersZh._(_root);
 	@override late final _TranslationsCompanionRemoteZh companionRemote = _TranslationsCompanionRemoteZh._(_root);
 	@override late final _TranslationsVideoSettingsZh videoSettings = _TranslationsVideoSettingsZh._(_root);
+	@override late final _TranslationsExternalPlayerZh externalPlayer = _TranslationsExternalPlayerZh._(_root);
 }
 
 // Path: app
@@ -142,6 +144,11 @@ class _TranslationsCommonZh implements TranslationsCommonEn {
 	@override String get mute => '静音';
 	@override String get ok => '确定';
 	@override String get loading => '加载中...';
+	@override String get reconnect => '重新连接';
+	@override String get exitConfirmTitle => '退出应用？';
+	@override String get exitConfirmMessage => '确定要退出吗？';
+	@override String get dontAskAgain => '不再询问';
+	@override String get exit => '退出';
 }
 
 // Path: screens
@@ -302,6 +309,8 @@ class _TranslationsSettingsZh implements TranslationsSettingsEn {
 	@override String get matchContentFrameRateDescription => '调整显示刷新率以匹配视频内容，减少画面抖动并节省电量';
 	@override String get requireProfileSelectionOnOpen => '打开应用时询问配置文件';
 	@override String get requireProfileSelectionOnOpenDescription => '每次打开应用时显示配置文件选择';
+	@override String get confirmExitOnBack => '退出前确认';
+	@override String get confirmExitOnBackDescription => '按返回键退出应用时显示确认对话框';
 }
 
 // Path: search
@@ -418,6 +427,7 @@ class _TranslationsTooltipsZh implements TranslationsTooltipsEn {
 
 	// Translations
 	@override String get shufflePlay => '随机播放';
+	@override String get playTrailer => '播放预告片';
 	@override String get markAsWatched => '标记为已观看';
 	@override String get markAsUnwatched => '标记为未观看';
 }
@@ -607,6 +617,7 @@ class _TranslationsDiscoverZh implements TranslationsDiscoverEn {
 	@override String playEpisode({required Object season, required Object episode}) => 'S${season}E${episode}';
 	@override String get overview => '概述';
 	@override String get cast => '演员表';
+	@override String get extras => '预告片与花絮';
 	@override String get seasons => '季数';
 	@override String get studio => '制作公司';
 	@override String get rating => '年龄分级';
@@ -760,6 +771,53 @@ class _TranslationsNavigationZh implements TranslationsNavigationEn {
 	// Translations
 	@override String get libraries => '媒体库';
 	@override String get downloads => '下载';
+	@override String get liveTv => '电视直播';
+}
+
+// Path: liveTv
+class _TranslationsLiveTvZh implements TranslationsLiveTvEn {
+	_TranslationsLiveTvZh._(this._root);
+
+	final TranslationsZh _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => '电视直播';
+	@override String get channels => '频道';
+	@override String get guide => '节目指南';
+	@override String get recordings => '录制';
+	@override String get subscriptions => '录制规则';
+	@override String get scheduled => '已计划';
+	@override String get noChannels => '没有可用的频道';
+	@override String get noDvr => '没有服务器配置了DVR';
+	@override String get tuneFailed => '无法调谐频道';
+	@override String get loading => '正在加载频道...';
+	@override String get nowPlaying => '正在播放';
+	@override String get record => '录制';
+	@override String get recordSeries => '录制系列';
+	@override String get cancelRecording => '取消录制';
+	@override String get deleteSubscription => '删除录制规则';
+	@override String get deleteSubscriptionConfirm => '确定要删除此录制规则吗？';
+	@override String get subscriptionDeleted => '录制规则已删除';
+	@override String get noPrograms => '没有可用的节目数据';
+	@override String get noRecordings => '没有计划的录制';
+	@override String get noSubscriptions => '没有录制规则';
+	@override String channelNumber({required Object number}) => '频道 ${number}';
+	@override String get live => '直播';
+	@override String get hd => '高清';
+	@override String get premiere => '新';
+	@override String get reloadGuide => '重新加载节目指南';
+	@override String get guideReloaded => '节目指南已重新加载';
+	@override String get allChannels => '所有频道';
+	@override String get now => '现在';
+	@override String get today => '今天';
+	@override String get midnight => '午夜';
+	@override String get overnight => '凌晨';
+	@override String get morning => '上午';
+	@override String get daytime => '白天';
+	@override String get evening => '晚上';
+	@override String get lateNight => '深夜';
+	@override String get whatsOn => '正在播出';
+	@override String get watchChannel => '观看频道';
 }
 
 // Path: downloads
@@ -959,6 +1017,30 @@ class _TranslationsVideoSettingsZh implements TranslationsVideoSettingsEn {
 	@override String get hdr => 'HDR';
 	@override String get audioOutput => '音频输出';
 	@override String get performanceOverlay => '性能监控';
+}
+
+// Path: externalPlayer
+class _TranslationsExternalPlayerZh implements TranslationsExternalPlayerEn {
+	_TranslationsExternalPlayerZh._(this._root);
+
+	final TranslationsZh _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => '外部播放器';
+	@override String get useExternalPlayer => '使用外部播放器';
+	@override String get useExternalPlayerDescription => '在外部应用中打开视频，而不是使用内置播放器';
+	@override String get selectPlayer => '选择播放器';
+	@override String get systemDefault => '系统默认';
+	@override String get addCustomPlayer => '添加自定义播放器';
+	@override String get playerName => '播放器名称';
+	@override String get playerCommand => '命令';
+	@override String get playerPackage => '包名';
+	@override String get playerUrlScheme => 'URL 方案';
+	@override String get customPlayer => '自定义播放器';
+	@override String get off => '关闭';
+	@override String get launchFailed => '无法打开外部播放器';
+	@override String appNotInstalled({required Object name}) => '${name} 未安装';
+	@override String get playInExternalPlayer => '在外部播放器中播放';
 }
 
 // Path: hotkeys.actions
@@ -1186,6 +1268,11 @@ extension on TranslationsZh {
 			'common.mute' => '静音',
 			'common.ok' => '确定',
 			'common.loading' => '加载中...',
+			'common.reconnect' => '重新连接',
+			'common.exitConfirmTitle' => '退出应用？',
+			'common.exitConfirmMessage' => '确定要退出吗？',
+			'common.dontAskAgain' => '不再询问',
+			'common.exit' => '退出',
 			'screens.licenses' => '许可证',
 			'screens.switchProfile' => '切换用户',
 			'screens.subtitleStyling' => '字幕样式',
@@ -1319,6 +1406,8 @@ extension on TranslationsZh {
 			'settings.matchContentFrameRateDescription' => '调整显示刷新率以匹配视频内容，减少画面抖动并节省电量',
 			'settings.requireProfileSelectionOnOpen' => '打开应用时询问配置文件',
 			'settings.requireProfileSelectionOnOpenDescription' => '每次打开应用时显示配置文件选择',
+			'settings.confirmExitOnBack' => '退出前确认',
+			'settings.confirmExitOnBackDescription' => '按返回键退出应用时显示确认对话框',
 			'search.hint' => '搜索电影、系列、音乐...',
 			'search.tryDifferentTerm' => '尝试不同的搜索词',
 			'search.searchYourMedia' => '搜索媒体',
@@ -1390,6 +1479,7 @@ extension on TranslationsZh {
 			'accessibility.mediaCardUnwatched' => '未观看',
 			'accessibility.tapToPlay' => '点击播放',
 			'tooltips.shufflePlay' => '随机播放',
+			'tooltips.playTrailer' => '播放预告片',
 			'tooltips.markAsWatched' => '标记为已观看',
 			'tooltips.markAsUnwatched' => '标记为未观看',
 			'videoControls.audioLabel' => '音频',
@@ -1520,6 +1610,7 @@ extension on TranslationsZh {
 			'discover.playEpisode' => ({required Object season, required Object episode}) => 'S${season}E${episode}',
 			'discover.overview' => '概述',
 			'discover.cast' => '演员表',
+			'discover.extras' => '预告片与花絮',
 			'discover.seasons' => '季数',
 			'discover.studio' => '制作公司',
 			'discover.rating' => '年龄分级',
@@ -1609,6 +1700,46 @@ extension on TranslationsZh {
 			'licenses.licensesCount' => ({required Object count}) => '${count} 个许可证',
 			'navigation.libraries' => '媒体库',
 			'navigation.downloads' => '下载',
+			'navigation.liveTv' => '电视直播',
+			'liveTv.title' => '电视直播',
+			'liveTv.channels' => '频道',
+			'liveTv.guide' => '节目指南',
+			'liveTv.recordings' => '录制',
+			'liveTv.subscriptions' => '录制规则',
+			'liveTv.scheduled' => '已计划',
+			'liveTv.noChannels' => '没有可用的频道',
+			'liveTv.noDvr' => '没有服务器配置了DVR',
+			'liveTv.tuneFailed' => '无法调谐频道',
+			'liveTv.loading' => '正在加载频道...',
+			'liveTv.nowPlaying' => '正在播放',
+			'liveTv.record' => '录制',
+			'liveTv.recordSeries' => '录制系列',
+			'liveTv.cancelRecording' => '取消录制',
+			'liveTv.deleteSubscription' => '删除录制规则',
+			'liveTv.deleteSubscriptionConfirm' => '确定要删除此录制规则吗？',
+			'liveTv.subscriptionDeleted' => '录制规则已删除',
+			'liveTv.noPrograms' => '没有可用的节目数据',
+			'liveTv.noRecordings' => '没有计划的录制',
+			'liveTv.noSubscriptions' => '没有录制规则',
+			'liveTv.channelNumber' => ({required Object number}) => '频道 ${number}',
+			'liveTv.live' => '直播',
+			'liveTv.hd' => '高清',
+			'liveTv.premiere' => '新',
+			'liveTv.reloadGuide' => '重新加载节目指南',
+			'liveTv.guideReloaded' => '节目指南已重新加载',
+			'liveTv.allChannels' => '所有频道',
+			'liveTv.now' => '现在',
+			'liveTv.today' => '今天',
+			'liveTv.midnight' => '午夜',
+			'liveTv.overnight' => '凌晨',
+			'liveTv.morning' => '上午',
+			'liveTv.daytime' => '白天',
+			'liveTv.evening' => '晚上',
+			'liveTv.lateNight' => '深夜',
+			'liveTv.whatsOn' => '正在播出',
+			_ => null,
+		} ?? switch (path) {
+			'liveTv.watchChannel' => '观看频道',
 			'downloads.title' => '下载',
 			'downloads.manage' => '管理',
 			'downloads.tvShows' => '电视剧',
@@ -1655,8 +1786,6 @@ extension on TranslationsZh {
 			'playlists.playlist' => '播放列表',
 			'collections.title' => '合集',
 			'collections.collection' => '合集',
-			_ => null,
-		} ?? switch (path) {
 			'collections.empty' => '合集为空',
 			'collections.unknownLibrarySection' => '无法删除：未知的媒体库分区',
 			'collections.deleteCollection' => '删除合集',
@@ -1821,6 +1950,21 @@ extension on TranslationsZh {
 			'videoSettings.hdr' => 'HDR',
 			'videoSettings.audioOutput' => '音频输出',
 			'videoSettings.performanceOverlay' => '性能监控',
+			'externalPlayer.title' => '外部播放器',
+			'externalPlayer.useExternalPlayer' => '使用外部播放器',
+			'externalPlayer.useExternalPlayerDescription' => '在外部应用中打开视频，而不是使用内置播放器',
+			'externalPlayer.selectPlayer' => '选择播放器',
+			'externalPlayer.systemDefault' => '系统默认',
+			'externalPlayer.addCustomPlayer' => '添加自定义播放器',
+			'externalPlayer.playerName' => '播放器名称',
+			'externalPlayer.playerCommand' => '命令',
+			'externalPlayer.playerPackage' => '包名',
+			'externalPlayer.playerUrlScheme' => 'URL 方案',
+			'externalPlayer.customPlayer' => '自定义播放器',
+			'externalPlayer.off' => '关闭',
+			'externalPlayer.launchFailed' => '无法打开外部播放器',
+			'externalPlayer.appNotInstalled' => ({required Object name}) => '${name} 未安装',
+			'externalPlayer.playInExternalPlayer' => '在外部播放器中播放',
 			_ => null,
 		};
 	}

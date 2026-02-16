@@ -15,6 +15,7 @@ import 'package:flutter/services.dart'
         KeyEvent,
         KeyDownEvent,
         HardwareKeyboard;
+import '../../services/fullscreen_state_manager.dart';
 import '../../services/macos_window_service.dart';
 import '../../services/pip_service.dart';
 import 'package:window_manager/window_manager.dart';
@@ -74,6 +75,8 @@ Widget plexVideoControlsBuilder(
   ShaderService? shaderService,
   VoidCallback? onShaderChanged,
   String Function(Duration time)? thumbnailUrlBuilder,
+  bool isLive = false,
+  String? liveChannelName,
 }) {
   return PlexVideoControls(
     player: player,
@@ -96,6 +99,8 @@ Widget plexVideoControlsBuilder(
     shaderService: shaderService,
     onShaderChanged: onShaderChanged,
     thumbnailUrlBuilder: thumbnailUrlBuilder,
+    isLive: isLive,
+    liveChannelName: liveChannelName,
   );
 }
 
@@ -139,6 +144,12 @@ class PlexVideoControls extends StatefulWidget {
   /// Optional callback that returns a thumbnail URL for a given timestamp.
   final String Function(Duration time)? thumbnailUrlBuilder;
 
+  /// Whether this is a live TV stream (disables seek, progress, etc.)
+  final bool isLive;
+
+  /// Channel name for live TV display
+  final String? liveChannelName;
+
   const PlexVideoControls({
     super.key,
     required this.player,
@@ -161,6 +172,8 @@ class PlexVideoControls extends StatefulWidget {
     this.shaderService,
     this.onShaderChanged,
     this.thumbnailUrlBuilder,
+    this.isLive = false,
+    this.liveChannelName,
   });
 
   @override
@@ -259,7 +272,6 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
       _initAlwaysOnTopState();
     }
 
-
     // Focus play/pause button on first frame if in keyboard mode
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusPlayPauseIfKeyboardMode();
@@ -315,30 +327,33 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
         }
       }
 
-      if (foundMarker != _currentMarker) {
-        if (mounted) {
-          setState(() {
-            _currentMarker = foundMarker;
-          });
-
-          // Start auto-skip timer for new marker
-          if (foundMarker != null) {
-            _startAutoSkipTimer(foundMarker);
-
-            // Auto-focus skip button on TV when marker appears (only in keyboard/TV mode, if controls hidden)
-            if (PlatformDetector.isTV() && InputModeTracker.isKeyboardMode(context)) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted && !_showControls) {
-                  _skipMarkerFocusNode.requestFocus();
-                }
-              });
-            }
-          } else {
-            _cancelAutoSkipTimer();
-          }
-        }
+      if (foundMarker != _currentMarker && mounted) {
+        _updateCurrentMarker(foundMarker);
       }
     });
+  }
+
+  /// Updates the current marker and manages auto-skip/focus behavior.
+  void _updateCurrentMarker(PlexMarker? foundMarker) {
+    setState(() {
+      _currentMarker = foundMarker;
+    });
+
+    if (foundMarker == null) {
+      _cancelAutoSkipTimer();
+      return;
+    }
+
+    _startAutoSkipTimer(foundMarker);
+
+    // Auto-focus skip button on TV when marker appears (only in keyboard/TV mode, if controls hidden)
+    if (PlatformDetector.isTV() && InputModeTracker.isKeyboardMode(context)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_showControls) {
+          _skipMarkerFocusNode.requestFocus();
+        }
+      });
+    }
   }
 
   /// Listen to playback state changes to manage auto-hide timer
@@ -388,7 +403,7 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
     if (!shouldAutoSkip || _autoSkipDelay <= 0) return;
 
     _autoSkipProgress = 0.0;
-    const tickDuration = Duration(milliseconds: 50);
+    const tickDuration = Duration(milliseconds: 200);
     final totalTicks = (_autoSkipDelay * 1000) / tickDuration.inMilliseconds;
 
     if (totalTicks <= 0) return;
@@ -476,10 +491,8 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
     }
   }
 
-  void _toggleSubtitles() {
-    // Toggle subtitle visibility - this would need to be implemented based on your subtitle system
-    // For now, this is a placeholder
-  }
+  // ignore: no-empty-block - stub for future subtitle toggle implementation
+  void _toggleSubtitles() {}
 
   void _toggleShader() {
     final shaderService = widget.shaderService;
@@ -488,6 +501,7 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
     if (shaderService.currentPreset.isEnabled) {
       // Currently active - disable temporarily
       shaderService.applyPreset(ShaderPreset.none).then((_) {
+        // ignore: no-empty-block - setState triggers rebuild to reflect disabled shader
         if (mounted) setState(() {});
         widget.onShaderChanged?.call();
       });
@@ -500,21 +514,18 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
           : ShaderPreset.allPresets.firstWhere((p) => p.isEnabled, orElse: () => ShaderPreset.allPresets[1]);
       shaderService.applyPreset(targetPreset).then((_) {
         shaderProvider.setCurrentPreset(targetPreset);
+        // ignore: no-empty-block - setState triggers rebuild to reflect restored shader
         if (mounted) setState(() {});
         widget.onShaderChanged?.call();
       });
     }
   }
 
-  void _nextAudioTrack() {
-    // Switch to next audio track - this would need to be implemented based on your track system
-    // For now, this is a placeholder
-  }
+  // ignore: no-empty-block - stub for future track cycling implementation
+  void _nextAudioTrack() {}
 
-  void _nextSubtitleTrack() {
-    // Switch to next subtitle track - this would need to be implemented based on your subtitle system
-    // For now, this is a placeholder
-  }
+  // ignore: no-empty-block - stub for future track cycling implementation
+  void _nextSubtitleTrack() {}
 
   void _nextChapter() {
     // Go to next chapter - this would use your existing chapter navigation
@@ -604,9 +615,8 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
   }
 
   @override
-  void onWindowResize() {
-    // Lag during resize is now handled in native code (glViewport + resize signal handler)
-  }
+  // ignore: no-empty-block - required by WindowListener interface
+  void onWindowResize() {}
 
   /// Controls hide delay: 5s on mobile/TV/keyboard-nav, 3s on desktop with mouse.
   Duration get _hideDelay {
@@ -779,6 +789,9 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
   }
 
   Future<void> _loadPlaybackExtras() async {
+    // Live TV metadata uses EPG rating keys, not library items
+    if (widget.isLive) return;
+
     try {
       appLogger.d('_loadPlaybackExtras: starting for ${widget.metadata.ratingKey}');
       final client = _getClientForMetadata();
@@ -889,6 +902,7 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
       onStartAutoHide: _startHideTimer,
       serverId: widget.metadata.serverId ?? '',
       canControl: widget.canControl,
+      isLive: widget.isLive,
       shaderService: widget.shaderService,
       onShaderChanged: widget.onShaderChanged,
     );
@@ -910,7 +924,14 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
       final delta = Duration(seconds: forward ? _seekTimeSmall : -_seekTimeSmall);
       final duration = widget.player.state.duration;
       final unclamped = widget.player.state.position + delta;
-      final newPosition = unclamped < Duration.zero ? Duration.zero : (unclamped > duration ? duration : unclamped);
+      Duration newPosition;
+      if (unclamped < Duration.zero) {
+        newPosition = Duration.zero;
+      } else if (unclamped > duration) {
+        newPosition = duration;
+      } else {
+        newPosition = unclamped;
+      }
       seekWithClamping(widget.player, delta);
       widget.onSeekCompleted?.call(newPosition);
       return;
@@ -1045,7 +1066,14 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
     final duration = widget.player.state.duration;
     final delta = Duration(seconds: isForward ? _seekTimeSmall : -_seekTimeSmall);
     final unclamped = currentPosition + delta;
-    final newPosition = unclamped < Duration.zero ? Duration.zero : (unclamped > duration ? duration : unclamped);
+    Duration newPosition;
+    if (unclamped < Duration.zero) {
+      newPosition = Duration.zero;
+    } else if (unclamped > duration) {
+      newPosition = duration;
+    } else {
+      newPosition = unclamped;
+    }
 
     // Perform the seek
     seekWithClamping(widget.player, delta);
@@ -1154,7 +1182,7 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
 
   /// Handle long-press start - activate 2x speed
   void _handleLongPressStart() {
-    if (!widget.canControl) return; // Respect Watch Together permissions
+    if (!widget.canControl || widget.isLive) return;
 
     setState(() {
       _isLongPressing = true;
@@ -1210,25 +1238,23 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
   Widget _buildSpeedIndicator() {
     return Align(
       alignment: Alignment.topCenter,
-      child: Padding(
-        padding: const EdgeInsets.only(top: 20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppIcon(Symbols.fast_forward_rounded, fill: 1, color: Colors.white, size: 16),
-              const SizedBox(width: 4),
-              const Text(
-                '2x',
-                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
+      child: Container(
+        margin: const EdgeInsets.only(top: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.7),
+          borderRadius: const BorderRadius.all(Radius.circular(20)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppIcon(Symbols.fast_forward_rounded, fill: 1, color: Colors.white, size: 16),
+            const SizedBox(width: 4),
+            const Text(
+              '2x',
+              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+          ],
         ),
       ),
     );
@@ -1236,27 +1262,7 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
 
   Future<void> _toggleFullscreen() async {
     if (!PlatformDetector.isMobile(context)) {
-      // Query actual window state to determine what action to take
-      // This ensures we always toggle correctly regardless of local state
-      final isCurrentlyFullscreen = await windowManager.isFullScreen();
-
-      if (Platform.isMacOS) {
-        // Use native macOS fullscreen - titlebar is handled automatically
-        // Window listener will update _isFullscreen for UI
-        if (isCurrentlyFullscreen) {
-          await MacOSWindowService.exitFullscreen();
-        } else {
-          await MacOSWindowService.enterFullscreen();
-        }
-      } else {
-        // For Windows/Linux, use window_manager
-        // Window listener will update _isFullscreen for UI
-        if (isCurrentlyFullscreen) {
-          await windowManager.setFullScreen(false);
-        } else {
-          await windowManager.setFullScreen(true);
-        }
-      }
+      await FullscreenStateManager().toggleFullscreen();
     }
   }
 
@@ -1273,9 +1279,12 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
   /// Toggle always-on-top window mode (desktop only)
   Future<void> _toggleAlwaysOnTop() async {
     if (!PlatformDetector.isMobile(context)) {
-      _isAlwaysOnTop = !_isAlwaysOnTop;
-      await windowManager.setAlwaysOnTop(_isAlwaysOnTop);
-      setState(() {});
+      final newValue = !_isAlwaysOnTop;
+      await windowManager.setAlwaysOnTop(newValue);
+      if (!mounted) return;
+      setState(() {
+        _isAlwaysOnTop = newValue;
+      });
     }
   }
 
@@ -1503,8 +1512,10 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
             }
 
             // Only handle KeyDown and KeyRepeat events
-            // Consume KeyUp events to prevent them leaking to previous routes
+            // Consume KeyUp events for navigation keys to prevent leaking to previous routes
+            // Let non-navigation keys (volume, etc.) pass through to the OS
             if (!event.isActionable) {
+              if (!event.logicalKey.isNavigationKey) return KeyEventResult.ignored;
               return KeyEventResult.handled;
             }
 
@@ -1591,7 +1602,9 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
               onToggleShader: _toggleShader,
               onSkipMarker: _performAutoSkip,
             );
-            // Never return .ignored from fullscreen video — prevent leaking to previous routes
+            // Let non-navigation keys (volume, etc.) pass through to the OS
+            if (!event.logicalKey.isNavigationKey) return KeyEventResult.ignored;
+            // Never return .ignored for navigation keys — prevent leaking to previous routes
             return result == KeyEventResult.ignored ? KeyEventResult.handled : result;
           },
           child: Listener(
@@ -1631,8 +1644,8 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           final height = constraints.maxHeight;
-                          final topExclude = height * 0.20; // Top 20%
-                          final bottomExclude = height * 0.20; // Bottom 20%
+                          final topExclude = height * 0.2; // Top 20%
+                          final bottomExclude = height * 0.2; // Bottom 20%
 
                           return Stack(
                             children: [
@@ -1758,7 +1771,8 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
                                             onSeek: _throttledSeek,
                                             onSeekEnd: _finalizeSeek,
                                             onSeekCompleted: widget.onSeekCompleted,
-                                            onPlayPause: () {}, // Not used, handled internally
+                                            // ignore: no-empty-block - play/pause handled by parent VideoControlsState
+                                            onPlayPause: () {},
                                             onCancelAutoHide: () => _hideTimer?.cancel(),
                                             onStartAutoHide: _startHideTimer,
                                             onBack: widget.onBack,
@@ -1767,65 +1781,11 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
                                             canControl: widget.canControl,
                                             hasFirstFrame: widget.hasFirstFrame,
                                             thumbnailUrlBuilder: widget.thumbnailUrlBuilder,
+                                            isLive: widget.isLive,
+                                            liveChannelName: widget.liveChannelName,
                                           ),
                                         )
-                                      : Listener(
-                                          behavior: HitTestBehavior.translucent,
-                                          onPointerDown: (_) => _restartHideTimerIfPlaying(),
-                                          child: DesktopVideoControls(
-                                            key: _desktopControlsKey,
-                                            player: widget.player,
-                                            metadata: widget.metadata,
-                                            onNext: widget.onNext,
-                                            onPrevious: widget.onPrevious,
-                                            chapters: _chapters,
-                                            chaptersLoaded: _chaptersLoaded,
-                                            seekTimeSmall: _seekTimeSmall,
-                                            onSeekToPreviousChapter: _seekToPreviousChapter,
-                                            onSeekToNextChapter: _seekToNextChapter,
-                                            onSeekBackward: () => _seekByTime(forward: false),
-                                            onSeekForward: () => _seekByTime(forward: true),
-                                            onSeek: _throttledSeek,
-                                            onSeekEnd: _finalizeSeek,
-                                            getReplayIcon: getReplayIcon,
-                                            getForwardIcon: getForwardIcon,
-                                            onFocusActivity: _restartHideTimerIfPlaying,
-                                            onHideControls: _hideControlsFromKeyboard,
-                                            // Track chapter controls data
-                                            availableVersions: widget.availableVersions,
-                                            selectedMediaIndex: widget.selectedMediaIndex,
-                                            boxFitMode: widget.boxFitMode,
-                                            audioSyncOffset: _audioSyncOffset,
-                                            subtitleSyncOffset: _subtitleSyncOffset,
-                                            isFullscreen: _isFullscreen,
-                                            isAlwaysOnTop: _isAlwaysOnTop,
-                                            onTogglePIPMode: (_isPipSupported && Platform.isAndroid)
-                                                ? widget.onTogglePIPMode
-                                                : null,
-                                            onCycleBoxFitMode: widget.player.playerType != 'exoplayer'
-                                                ? widget.onCycleBoxFitMode
-                                                : null,
-                                            onToggleFullscreen: _toggleFullscreen,
-                                            onToggleAlwaysOnTop: _toggleAlwaysOnTop,
-                                            onSwitchVersion: _switchMediaVersion,
-                                            onAudioTrackChanged: widget.onAudioTrackChanged,
-                                            onSubtitleTrackChanged: widget.onSubtitleTrackChanged,
-                                            onLoadSeekTimes: () async {
-                                              if (mounted) {
-                                                await _loadSeekTimes();
-                                              }
-                                            },
-                                            onCancelAutoHide: () => _hideTimer?.cancel(),
-                                            onStartAutoHide: _startHideTimer,
-                                            serverId: widget.metadata.serverId ?? '',
-                                            onBack: widget.onBack,
-                                            canControl: widget.canControl,
-                                            hasFirstFrame: widget.hasFirstFrame,
-                                            shaderService: widget.shaderService,
-                                            onShaderChanged: widget.onShaderChanged,
-                                            thumbnailUrlBuilder: widget.thumbnailUrlBuilder,
-                                          ),
-                                        ),
+                                      : _buildDesktopControlsListener(),
                                 ),
                               );
                             },
@@ -1853,7 +1813,10 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
                       duration: const Duration(milliseconds: 200),
                       curve: Curves.easeInOut,
                       right: 24,
-                      bottom: _showControls ? (isMobile ? 80 : 115) : 24,
+                      bottom: () {
+                        if (!_showControls) return 24.0;
+                        return isMobile ? 80.0 : 115.0;
+                      }(),
                       child: AnimatedOpacity(
                         opacity: 1.0,
                         duration: tokens(context).slow,
@@ -1876,13 +1839,80 @@ class _PlexVideoControlsState extends State<PlexVideoControls> with WindowListen
     );
   }
 
+  Widget _buildDesktopControlsListener() {
+    final pipMode = (_isPipSupported && Platform.isAndroid) ? widget.onTogglePIPMode : null;
+    final boxFitMode = widget.player.playerType != 'exoplayer' ? widget.onCycleBoxFitMode : null;
+
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => _restartHideTimerIfPlaying(),
+      child: DesktopVideoControls(
+        key: _desktopControlsKey,
+        player: widget.player,
+        metadata: widget.metadata,
+        onNext: widget.onNext,
+        onPrevious: widget.onPrevious,
+        chapters: _chapters,
+        chaptersLoaded: _chaptersLoaded,
+        seekTimeSmall: _seekTimeSmall,
+        onSeekToPreviousChapter: _seekToPreviousChapter,
+        onSeekToNextChapter: _seekToNextChapter,
+        onSeekBackward: () => _seekByTime(forward: false),
+        onSeekForward: () => _seekByTime(forward: true),
+        onSeek: _throttledSeek,
+        onSeekEnd: _finalizeSeek,
+        getReplayIcon: getReplayIcon,
+        getForwardIcon: getForwardIcon,
+        onFocusActivity: _restartHideTimerIfPlaying,
+        onHideControls: _hideControlsFromKeyboard,
+        availableVersions: widget.availableVersions,
+        selectedMediaIndex: widget.selectedMediaIndex,
+        boxFitMode: widget.boxFitMode,
+        audioSyncOffset: _audioSyncOffset,
+        subtitleSyncOffset: _subtitleSyncOffset,
+        isFullscreen: _isFullscreen,
+        isAlwaysOnTop: _isAlwaysOnTop,
+        onTogglePIPMode: pipMode,
+        onCycleBoxFitMode: boxFitMode,
+        onToggleFullscreen: _toggleFullscreen,
+        onToggleAlwaysOnTop: _toggleAlwaysOnTop,
+        onSwitchVersion: _switchMediaVersion,
+        onAudioTrackChanged: widget.onAudioTrackChanged,
+        onSubtitleTrackChanged: widget.onSubtitleTrackChanged,
+        onLoadSeekTimes: () async {
+          if (mounted) {
+            await _loadSeekTimes();
+          }
+        },
+        onCancelAutoHide: () => _hideTimer?.cancel(),
+        onStartAutoHide: _startHideTimer,
+        serverId: widget.metadata.serverId ?? '',
+        onBack: widget.onBack,
+        canControl: widget.canControl,
+        hasFirstFrame: widget.hasFirstFrame,
+        shaderService: widget.shaderService,
+        onShaderChanged: widget.onShaderChanged,
+        thumbnailUrlBuilder: widget.thumbnailUrlBuilder,
+        isLive: widget.isLive,
+        liveChannelName: widget.liveChannelName,
+      ),
+    );
+  }
+
   Widget _buildSkipMarkerButton() {
     final isCredits = _currentMarker!.isCredits;
     final hasNextEpisode = widget.onNext != null;
 
     // Show "Next Episode" for credits when next episode is available
     final bool showNextEpisode = isCredits && hasNextEpisode;
-    final String baseButtonText = showNextEpisode ? 'Next Episode' : (isCredits ? 'Skip Credits' : 'Skip Intro');
+    String baseButtonText;
+    if (showNextEpisode) {
+      baseButtonText = 'Next Episode';
+    } else if (isCredits) {
+      baseButtonText = 'Skip Credits';
+    } else {
+      baseButtonText = 'Skip Intro';
+    }
 
     final isAutoSkipActive = _autoSkipTimer?.isActive ?? false;
     final shouldShowAutoSkip = _shouldShowAutoSkip();

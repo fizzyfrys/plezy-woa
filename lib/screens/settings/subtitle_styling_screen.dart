@@ -99,8 +99,8 @@ class _ColorSettingTile extends StatelessWidget {
         height: 40,
         decoration: BoxDecoration(
           color: hexToColor(currentColor),
-          border: Border.all(color: Colors.grey),
-          borderRadius: BorderRadius.circular(4),
+          border: const Border.fromBorderSide(BorderSide(color: Colors.grey)),
+          borderRadius: const BorderRadius.all(Radius.circular(4)),
         ),
       ),
       title: Text(label),
@@ -132,6 +132,7 @@ class _SubtitleStylingScreenState extends State<SubtitleStylingScreen> {
   Future<void> _loadSettings() async {
     _settingsService = await SettingsService.getInstance();
 
+    if (!mounted) return;
     setState(() {
       _fontSize = _settingsService.getSubtitleFontSize();
       _textColor = _settingsService.getSubtitleTextColor();
@@ -317,7 +318,7 @@ class _SubtitleStylingScreenState extends State<SubtitleStylingScreen> {
               onTap: () => _showTvSpinnerDialog(
                 title: t.subtitlingStyling.fontSize,
                 currentValue: _fontSize,
-                min: 30,
+                min: 10,
                 max: 80,
                 onSave: (value) {
                   setState(() => _fontSize = value);
@@ -329,9 +330,9 @@ class _SubtitleStylingScreenState extends State<SubtitleStylingScreen> {
             _StylingSliderSection(
               label: t.subtitlingStyling.fontSize,
               value: _fontSize,
-              min: 30,
+              min: 10,
               max: 80,
-              divisions: 50,
+              divisions: 70,
               onChanged: (value) {
                 setState(() {
                   _fontSize = value.toInt();
@@ -346,7 +347,11 @@ class _SubtitleStylingScreenState extends State<SubtitleStylingScreen> {
           if (PlatformDetector.isTV())
             ListTile(
               title: Text(t.subtitlingStyling.position),
-              trailing: Text(_subtitlePosition == 0 ? 'Top' : _subtitlePosition == 100 ? 'Bottom' : '$_subtitlePosition%'),
+              trailing: Text(() {
+                if (_subtitlePosition == 0) return 'Top';
+                if (_subtitlePosition == 100) return 'Bottom';
+                return '$_subtitlePosition%';
+              }()),
               onTap: () => _showTvSpinnerDialog(
                 title: t.subtitlingStyling.position,
                 currentValue: _subtitlePosition,

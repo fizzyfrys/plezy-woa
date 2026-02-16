@@ -16,6 +16,7 @@ import '../utils/library_refresh_notifier.dart';
 import '../utils/snackbar_helper.dart';
 import '../utils/dialogs.dart';
 import '../utils/focus_utils.dart';
+import '../services/external_player_service.dart';
 import '../focus/dpad_navigator.dart';
 import '../screens/media_detail_screen.dart';
 import '../screens/season_detail_screen.dart';
@@ -217,6 +218,17 @@ class MediaContextMenuState extends State<MediaContextMenu> {
         menuActions.add(_MenuAction(value: 'fileinfo', icon: Symbols.info_rounded, label: t.mediaMenu.fileInfo));
       }
 
+      // Play in External Player (for episodes and movies)
+      if (mediaType == PlexMediaType.episode || mediaType == PlexMediaType.movie) {
+        menuActions.add(
+          _MenuAction(
+            value: 'play_external',
+            icon: Symbols.open_in_new_rounded,
+            label: t.externalPlayer.playInExternalPlayer,
+          ),
+        );
+      }
+
       // Download options (for episodes, movies, shows, and seasons)
       if (mediaType == PlexMediaType.episode ||
           mediaType == PlexMediaType.movie ||
@@ -257,7 +269,7 @@ class MediaContextMenuState extends State<MediaContextMenu> {
             value: 'delete_media',
             icon: Symbols.delete_rounded,
             label: t.common.delete,
-            hoverColor: Colors.red,
+            hoverColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -417,6 +429,10 @@ class MediaContextMenuState extends State<MediaContextMenu> {
           await _handleDelete(context, isCollection, isPlaylist);
           break;
 
+        case 'play_external':
+          await _handlePlayExternal(context);
+          break;
+
         case 'download':
           await _handleDownload(context);
           break;
@@ -553,54 +569,48 @@ class MediaContextMenuState extends State<MediaContextMenu> {
       _MenuAction(value: 'collection', icon: Symbols.collections_rounded, label: t.collections.collection),
     ];
 
-    String? selected;
-
-    if (useBottomSheet) {
-      // Show bottom sheet on mobile
-      selected = await showModalBottomSheet<String>(
-        context: context,
-        builder: (context) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(t.common.addTo, style: Theme.of(context).textTheme.titleMedium),
+    final selected = useBottomSheet
+        ? await showModalBottomSheet<String>(
+            context: context,
+            builder: (context) => SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(t.common.addTo, style: Theme.of(context).textTheme.titleMedium),
+                  ),
+                  ...submenuActions.map((action) {
+                    return ListTile(
+                      leading: AppIcon(action.icon, fill: 1),
+                      title: Text(action.label),
+                      onTap: () => Navigator.pop(context, action.value),
+                    );
+                  }),
+                  const SizedBox(height: 8),
+                ],
               ),
-              ...submenuActions.map((action) {
-                return ListTile(
-                  leading: AppIcon(action.icon, fill: 1),
-                  title: Text(action.label),
-                  onTap: () => Navigator.pop(context, action.value),
-                );
-              }),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      );
-    } else {
-      // Show popup menu on desktop
-      selected = await showMenu<String>(
-        context: context,
-        position: RelativeRect.fromLTRB(
-          _tapPosition?.dx ?? 0,
-          _tapPosition?.dy ?? 0,
-          _tapPosition?.dx ?? 0,
-          _tapPosition?.dy ?? 0,
-        ),
-        items: submenuActions.map((action) {
-          return PopupMenuItem<String>(
-            value: action.value,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [AppIcon(action.icon, fill: 1, size: 20), const SizedBox(width: 12), Text(action.label)],
             ),
+          )
+        : await showMenu<String>(
+            context: context,
+            position: RelativeRect.fromLTRB(
+              _tapPosition?.dx ?? 0,
+              _tapPosition?.dy ?? 0,
+              _tapPosition?.dx ?? 0,
+              _tapPosition?.dy ?? 0,
+            ),
+            items: submenuActions.map((action) {
+              return PopupMenuItem<String>(
+                value: action.value,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [AppIcon(action.icon, fill: 1, size: 20), const SizedBox(width: 12), Text(action.label)],
+                ),
+              );
+            }).toList(),
           );
-        }).toList(),
-      );
-    }
 
     // Handle the submenu selection
     if (selected == 'playlist' && context.mounted) {
@@ -907,12 +917,12 @@ class MediaContextMenuState extends State<MediaContextMenu> {
   }
 
   /// Handle play action for collections and playlists
-  Future<void> _handlePlay(BuildContext context, bool isCollection, bool isPlaylist) async {
+  Future<void> _handlePlay(BuildContext context, bool _, bool _) async {
     await _launchCollectionOrPlaylist(context, shuffle: false);
   }
 
   /// Handle shuffle action for collections and playlists
-  Future<void> _handleShuffle(BuildContext context, bool isCollection, bool isPlaylist) async {
+  Future<void> _handleShuffle(BuildContext context, bool _, bool _) async {
     await _launchCollectionOrPlaylist(context, shuffle: true);
   }
 
@@ -981,6 +991,26 @@ class MediaContextMenuState extends State<MediaContextMenu> {
     }
   }
 
+  /// Handle play in external player action
+  Future<void> _handlePlayExternal(BuildContext context) async {
+    final metadata = widget.item as PlexMetadata;
+
+    // Check if the item is downloaded and use local file path if available
+    final downloadProvider = Provider.of<DownloadProvider>(context, listen: false);
+    final globalKey = '${metadata.serverId}:${metadata.ratingKey}';
+    if (downloadProvider.isDownloaded(globalKey)) {
+      final videoPath = await downloadProvider.getVideoFilePath(globalKey);
+      if (videoPath != null) {
+        final videoUrl = videoPath.contains('://') ? videoPath : 'file://$videoPath';
+        await ExternalPlayerService.launch(context: context, videoUrl: videoUrl);
+        return;
+      }
+    }
+
+    final client = _getClientForItem();
+    await ExternalPlayerService.launch(context: context, metadata: metadata, client: client);
+  }
+
   /// Handle download action
   Future<void> _handleDownload(BuildContext context) async {
     final downloadProvider = Provider.of<DownloadProvider>(context, listen: false);
@@ -1027,6 +1057,8 @@ class MediaContextMenuState extends State<MediaContextMenu> {
 
       if (context.mounted) {
         showSuccessSnackBar(context, t.downloads.downloadDeleted);
+        // Notify DeletionAware screens (e.g. offline season detail)
+        DeletionNotifier().notifyDeleted(metadata: metadata, isDownloadOnly: true);
         // Refresh the view if needed
         widget.onRefresh?.call(metadata.ratingKey);
       }
@@ -1115,16 +1147,15 @@ class _PlaylistSelectionDialog extends StatelessWidget {
             }
 
             final playlist = playlists[index - 1];
+            final subtitleText = playlist.leafCount == 1
+                ? t.playlists.oneItem
+                : t.playlists.itemCount(count: playlist.leafCount!);
             return ListTile(
               leading: playlist.smart
                   ? const AppIcon(Symbols.auto_awesome_rounded, fill: 1)
                   : const AppIcon(Symbols.playlist_play_rounded, fill: 1),
               title: Text(playlist.title),
-              subtitle: playlist.leafCount != null
-                  ? Text(
-                      playlist.leafCount == 1 ? t.playlists.oneItem : t.playlists.itemCount(count: playlist.leafCount!),
-                    )
-                  : null,
+              subtitle: playlist.leafCount != null ? Text(subtitleText) : null,
               onTap: playlist.smart
                   ? null // Disable smart playlists
                   : () => Navigator.pop(context, playlist.ratingKey),

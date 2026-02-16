@@ -65,6 +65,7 @@ class TranslationsNl with BaseTranslations<AppLocale, Translations> implements T
 	@override late final _TranslationsLogsNl logs = _TranslationsLogsNl._(_root);
 	@override late final _TranslationsLicensesNl licenses = _TranslationsLicensesNl._(_root);
 	@override late final _TranslationsNavigationNl navigation = _TranslationsNavigationNl._(_root);
+	@override late final _TranslationsLiveTvNl liveTv = _TranslationsLiveTvNl._(_root);
 	@override late final _TranslationsDownloadsNl downloads = _TranslationsDownloadsNl._(_root);
 	@override late final _TranslationsPlaylistsNl playlists = _TranslationsPlaylistsNl._(_root);
 	@override late final _TranslationsCollectionsNl collections = _TranslationsCollectionsNl._(_root);
@@ -72,6 +73,7 @@ class TranslationsNl with BaseTranslations<AppLocale, Translations> implements T
 	@override late final _TranslationsShadersNl shaders = _TranslationsShadersNl._(_root);
 	@override late final _TranslationsCompanionRemoteNl companionRemote = _TranslationsCompanionRemoteNl._(_root);
 	@override late final _TranslationsVideoSettingsNl videoSettings = _TranslationsVideoSettingsNl._(_root);
+	@override late final _TranslationsExternalPlayerNl externalPlayer = _TranslationsExternalPlayerNl._(_root);
 }
 
 // Path: app
@@ -142,6 +144,11 @@ class _TranslationsCommonNl implements TranslationsCommonEn {
 	@override String get mute => 'Dempen';
 	@override String get ok => 'OK';
 	@override String get loading => 'Laden...';
+	@override String get reconnect => 'Opnieuw verbinden';
+	@override String get exitConfirmTitle => 'App afsluiten?';
+	@override String get exitConfirmMessage => 'Weet je zeker dat je wilt afsluiten?';
+	@override String get dontAskAgain => 'Niet meer vragen';
+	@override String get exit => 'Afsluiten';
 }
 
 // Path: screens
@@ -302,6 +309,8 @@ class _TranslationsSettingsNl implements TranslationsSettingsEn {
 	@override String get matchContentFrameRateDescription => 'Pas de schermverversingssnelheid aan op de video-inhoud, vermindert haperingen en bespaart batterij';
 	@override String get requireProfileSelectionOnOpen => 'Vraag om profiel bij openen';
 	@override String get requireProfileSelectionOnOpenDescription => 'Toon profielselectie telkens wanneer de app wordt geopend';
+	@override String get confirmExitOnBack => 'Bevestigen voor afsluiten';
+	@override String get confirmExitOnBackDescription => 'Toon een bevestigingsvenster bij het drukken op terug om de app af te sluiten';
 }
 
 // Path: search
@@ -418,6 +427,7 @@ class _TranslationsTooltipsNl implements TranslationsTooltipsEn {
 
 	// Translations
 	@override String get shufflePlay => 'Willekeurig afspelen';
+	@override String get playTrailer => 'Trailer afspelen';
 	@override String get markAsWatched => 'Markeer als gekeken';
 	@override String get markAsUnwatched => 'Markeer als ongekeken';
 }
@@ -607,6 +617,7 @@ class _TranslationsDiscoverNl implements TranslationsDiscoverEn {
 	@override String playEpisode({required Object season, required Object episode}) => 'S${season}E${episode}';
 	@override String get overview => 'Overzicht';
 	@override String get cast => 'Acteurs';
+	@override String get extras => 'Trailers & Extra\'s';
 	@override String get seasons => 'Seizoenen';
 	@override String get studio => 'Studio';
 	@override String get rating => 'Leeftijd';
@@ -760,6 +771,53 @@ class _TranslationsNavigationNl implements TranslationsNavigationEn {
 	// Translations
 	@override String get libraries => 'Bibliotheken';
 	@override String get downloads => 'Downloads';
+	@override String get liveTv => 'Live TV';
+}
+
+// Path: liveTv
+class _TranslationsLiveTvNl implements TranslationsLiveTvEn {
+	_TranslationsLiveTvNl._(this._root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Live TV';
+	@override String get channels => 'Zenders';
+	@override String get guide => 'Gids';
+	@override String get recordings => 'Opnames';
+	@override String get subscriptions => 'Opnameregels';
+	@override String get scheduled => 'Gepland';
+	@override String get noChannels => 'Geen zenders beschikbaar';
+	@override String get noDvr => 'Geen DVR geconfigureerd op een server';
+	@override String get tuneFailed => 'Kan zender niet afstemmen';
+	@override String get loading => 'Zenders laden...';
+	@override String get nowPlaying => 'Nu aan het afspelen';
+	@override String get record => 'Opnemen';
+	@override String get recordSeries => 'Serie opnemen';
+	@override String get cancelRecording => 'Opname annuleren';
+	@override String get deleteSubscription => 'Opnameregel verwijderen';
+	@override String get deleteSubscriptionConfirm => 'Weet je zeker dat je deze opnameregel wilt verwijderen?';
+	@override String get subscriptionDeleted => 'Opnameregel verwijderd';
+	@override String get noPrograms => 'Geen programmagegevens beschikbaar';
+	@override String get noRecordings => 'Geen opnames gepland';
+	@override String get noSubscriptions => 'Geen opnameregels';
+	@override String channelNumber({required Object number}) => 'Kanaal ${number}';
+	@override String get live => 'LIVE';
+	@override String get hd => 'HD';
+	@override String get premiere => 'NIEUW';
+	@override String get reloadGuide => 'Gids herladen';
+	@override String get guideReloaded => 'Gidsgegevens herladen';
+	@override String get allChannels => 'Alle zenders';
+	@override String get now => 'Nu';
+	@override String get today => 'Vandaag';
+	@override String get midnight => 'Middernacht';
+	@override String get overnight => 'Nacht';
+	@override String get morning => 'Ochtend';
+	@override String get daytime => 'Overdag';
+	@override String get evening => 'Avond';
+	@override String get lateNight => 'Late avond';
+	@override String get whatsOn => 'Nu op TV';
+	@override String get watchChannel => 'Kanaal bekijken';
 }
 
 // Path: downloads
@@ -959,6 +1017,30 @@ class _TranslationsVideoSettingsNl implements TranslationsVideoSettingsEn {
 	@override String get hdr => 'HDR';
 	@override String get audioOutput => 'Audio-uitvoer';
 	@override String get performanceOverlay => 'Prestatie-overlay';
+}
+
+// Path: externalPlayer
+class _TranslationsExternalPlayerNl implements TranslationsExternalPlayerEn {
+	_TranslationsExternalPlayerNl._(this._root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Externe speler';
+	@override String get useExternalPlayer => 'Externe speler gebruiken';
+	@override String get useExternalPlayerDescription => 'Open video\'s in een externe app in plaats van de ingebouwde speler';
+	@override String get selectPlayer => 'Speler selecteren';
+	@override String get systemDefault => 'Systeemstandaard';
+	@override String get addCustomPlayer => 'Aangepaste speler toevoegen';
+	@override String get playerName => 'Spelernaam';
+	@override String get playerCommand => 'Commando';
+	@override String get playerPackage => 'Pakketnaam';
+	@override String get playerUrlScheme => 'URL-schema';
+	@override String get customPlayer => 'Aangepaste speler';
+	@override String get off => 'Uit';
+	@override String get launchFailed => 'Kan externe speler niet openen';
+	@override String appNotInstalled({required Object name}) => '${name} is niet geïnstalleerd';
+	@override String get playInExternalPlayer => 'Afspelen in externe speler';
 }
 
 // Path: hotkeys.actions
@@ -1186,6 +1268,11 @@ extension on TranslationsNl {
 			'common.mute' => 'Dempen',
 			'common.ok' => 'OK',
 			'common.loading' => 'Laden...',
+			'common.reconnect' => 'Opnieuw verbinden',
+			'common.exitConfirmTitle' => 'App afsluiten?',
+			'common.exitConfirmMessage' => 'Weet je zeker dat je wilt afsluiten?',
+			'common.dontAskAgain' => 'Niet meer vragen',
+			'common.exit' => 'Afsluiten',
 			'screens.licenses' => 'Licenties',
 			'screens.switchProfile' => 'Wissel van profiel',
 			'screens.subtitleStyling' => 'Ondertitel opmaak',
@@ -1319,6 +1406,8 @@ extension on TranslationsNl {
 			'settings.matchContentFrameRateDescription' => 'Pas de schermverversingssnelheid aan op de video-inhoud, vermindert haperingen en bespaart batterij',
 			'settings.requireProfileSelectionOnOpen' => 'Vraag om profiel bij openen',
 			'settings.requireProfileSelectionOnOpenDescription' => 'Toon profielselectie telkens wanneer de app wordt geopend',
+			'settings.confirmExitOnBack' => 'Bevestigen voor afsluiten',
+			'settings.confirmExitOnBackDescription' => 'Toon een bevestigingsvenster bij het drukken op terug om de app af te sluiten',
 			'search.hint' => 'Zoek films, series, muziek...',
 			'search.tryDifferentTerm' => 'Probeer een andere zoekterm',
 			'search.searchYourMedia' => 'Zoek in je media',
@@ -1390,6 +1479,7 @@ extension on TranslationsNl {
 			'accessibility.mediaCardUnwatched' => 'niet bekeken',
 			'accessibility.tapToPlay' => 'Tik om af te spelen',
 			'tooltips.shufflePlay' => 'Willekeurig afspelen',
+			'tooltips.playTrailer' => 'Trailer afspelen',
 			'tooltips.markAsWatched' => 'Markeer als gekeken',
 			'tooltips.markAsUnwatched' => 'Markeer als ongekeken',
 			'videoControls.audioLabel' => 'Audio',
@@ -1520,6 +1610,7 @@ extension on TranslationsNl {
 			'discover.playEpisode' => ({required Object season, required Object episode}) => 'S${season}E${episode}',
 			'discover.overview' => 'Overzicht',
 			'discover.cast' => 'Acteurs',
+			'discover.extras' => 'Trailers & Extra\'s',
 			'discover.seasons' => 'Seizoenen',
 			'discover.studio' => 'Studio',
 			'discover.rating' => 'Leeftijd',
@@ -1609,6 +1700,46 @@ extension on TranslationsNl {
 			'licenses.licensesCount' => ({required Object count}) => '${count} licenties',
 			'navigation.libraries' => 'Bibliotheken',
 			'navigation.downloads' => 'Downloads',
+			'navigation.liveTv' => 'Live TV',
+			'liveTv.title' => 'Live TV',
+			'liveTv.channels' => 'Zenders',
+			'liveTv.guide' => 'Gids',
+			'liveTv.recordings' => 'Opnames',
+			'liveTv.subscriptions' => 'Opnameregels',
+			'liveTv.scheduled' => 'Gepland',
+			'liveTv.noChannels' => 'Geen zenders beschikbaar',
+			'liveTv.noDvr' => 'Geen DVR geconfigureerd op een server',
+			'liveTv.tuneFailed' => 'Kan zender niet afstemmen',
+			'liveTv.loading' => 'Zenders laden...',
+			'liveTv.nowPlaying' => 'Nu aan het afspelen',
+			'liveTv.record' => 'Opnemen',
+			'liveTv.recordSeries' => 'Serie opnemen',
+			'liveTv.cancelRecording' => 'Opname annuleren',
+			'liveTv.deleteSubscription' => 'Opnameregel verwijderen',
+			'liveTv.deleteSubscriptionConfirm' => 'Weet je zeker dat je deze opnameregel wilt verwijderen?',
+			'liveTv.subscriptionDeleted' => 'Opnameregel verwijderd',
+			'liveTv.noPrograms' => 'Geen programmagegevens beschikbaar',
+			'liveTv.noRecordings' => 'Geen opnames gepland',
+			'liveTv.noSubscriptions' => 'Geen opnameregels',
+			'liveTv.channelNumber' => ({required Object number}) => 'Kanaal ${number}',
+			'liveTv.live' => 'LIVE',
+			'liveTv.hd' => 'HD',
+			'liveTv.premiere' => 'NIEUW',
+			'liveTv.reloadGuide' => 'Gids herladen',
+			'liveTv.guideReloaded' => 'Gidsgegevens herladen',
+			'liveTv.allChannels' => 'Alle zenders',
+			'liveTv.now' => 'Nu',
+			'liveTv.today' => 'Vandaag',
+			'liveTv.midnight' => 'Middernacht',
+			'liveTv.overnight' => 'Nacht',
+			'liveTv.morning' => 'Ochtend',
+			'liveTv.daytime' => 'Overdag',
+			'liveTv.evening' => 'Avond',
+			'liveTv.lateNight' => 'Late avond',
+			'liveTv.whatsOn' => 'Nu op TV',
+			_ => null,
+		} ?? switch (path) {
+			'liveTv.watchChannel' => 'Kanaal bekijken',
 			'downloads.title' => 'Downloads',
 			'downloads.manage' => 'Beheren',
 			'downloads.tvShows' => 'Series',
@@ -1655,8 +1786,6 @@ extension on TranslationsNl {
 			'playlists.playlist' => 'Afspeellijst',
 			'collections.title' => 'Collecties',
 			'collections.collection' => 'Collectie',
-			_ => null,
-		} ?? switch (path) {
 			'collections.empty' => 'Collectie is leeg',
 			'collections.unknownLibrarySection' => 'Kan niet verwijderen: onbekende bibliotheeksectie',
 			'collections.deleteCollection' => 'Collectie verwijderen',
@@ -1821,6 +1950,21 @@ extension on TranslationsNl {
 			'videoSettings.hdr' => 'HDR',
 			'videoSettings.audioOutput' => 'Audio-uitvoer',
 			'videoSettings.performanceOverlay' => 'Prestatie-overlay',
+			'externalPlayer.title' => 'Externe speler',
+			'externalPlayer.useExternalPlayer' => 'Externe speler gebruiken',
+			'externalPlayer.useExternalPlayerDescription' => 'Open video\'s in een externe app in plaats van de ingebouwde speler',
+			'externalPlayer.selectPlayer' => 'Speler selecteren',
+			'externalPlayer.systemDefault' => 'Systeemstandaard',
+			'externalPlayer.addCustomPlayer' => 'Aangepaste speler toevoegen',
+			'externalPlayer.playerName' => 'Spelernaam',
+			'externalPlayer.playerCommand' => 'Commando',
+			'externalPlayer.playerPackage' => 'Pakketnaam',
+			'externalPlayer.playerUrlScheme' => 'URL-schema',
+			'externalPlayer.customPlayer' => 'Aangepaste speler',
+			'externalPlayer.off' => 'Uit',
+			'externalPlayer.launchFailed' => 'Kan externe speler niet openen',
+			'externalPlayer.appNotInstalled' => ({required Object name}) => '${name} is niet geïnstalleerd',
+			'externalPlayer.playInExternalPlayer' => 'Afspelen in externe speler',
 			_ => null,
 		};
 	}

@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 import '../focus/dpad_navigator.dart';
 import '../focus/key_event_utils.dart';
 import '../providers/settings_provider.dart';
-import '../services/settings_service.dart' show EpisodePosterMode;
+import '../services/settings_service.dart' show EpisodePosterMode, LibraryDensity;
 import '../theme/mono_tokens.dart';
 import '../utils/layout_constants.dart';
 import '../focus/locked_hub_controller.dart';
@@ -17,6 +17,7 @@ import '../screens/hub_detail_screen.dart';
 import '../utils/media_navigation_helper.dart';
 import 'focus_builders.dart';
 import 'media_card.dart';
+import '../utils/scroll_utils.dart';
 import 'horizontal_scroll_with_arrows.dart';
 import '../i18n/strings.g.dart';
 
@@ -121,7 +122,7 @@ class HubSectionState extends State<HubSection> {
       _isSelectKeyDown = false;
       _longPressTriggered = false;
     }
-    // Rebuild to update visual focus state
+    // ignore: no-empty-block - setState triggers rebuild to update focus styling
     if (mounted) setState(() {});
   }
 
@@ -135,6 +136,7 @@ class HubSectionState extends State<HubSection> {
     HubFocusMemory.setForHub(widget.hub.hubKey, clamped);
     _scrollToIndex(clamped);
     _hubFocusNode.requestFocus();
+    // ignore: no-empty-block - setState triggers rebuild to update focus styling
     if (mounted) setState(() {});
 
     // Scroll the hub into view in the parent scroll view
@@ -168,21 +170,17 @@ class HubSectionState extends State<HubSection> {
 
   /// Scroll to center the item at the given index
   void _scrollToIndex(int index, {bool animate = true}) {
-    if (!_scrollController.hasClients || _itemExtent <= 0) return;
-
-    final viewport = _scrollController.position.viewportDimension;
-    final targetCenter = _leadingPadding + (index * _itemExtent) + (_itemExtent / 2);
-    final desiredOffset = (targetCenter - (viewport / 2)).clamp(0.0, _scrollController.position.maxScrollExtent);
-
-    if (animate) {
-      _scrollController.animateTo(desiredOffset, duration: const Duration(milliseconds: 150), curve: Curves.easeOut);
-    } else {
-      _scrollController.jumpTo(desiredOffset);
-    }
+    scrollListToIndex(
+      _scrollController,
+      index,
+      itemExtent: _itemExtent,
+      leadingPadding: _leadingPadding,
+      animate: animate,
+    );
   }
 
   /// Handle ALL key events at the hub level
-  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+  KeyEventResult _handleKeyEvent(FocusNode _, KeyEvent event) {
     final key = event.logicalKey;
 
     if (key.isSelectKey) {
@@ -233,10 +231,11 @@ class HubSectionState extends State<HubSection> {
     // Left: move to previous item, or navigate to sidebar at left edge
     if (key.isLeftKey) {
       if (_focusedIndex > 0) {
-        _focusedIndex--;
+        setState(() {
+          _focusedIndex--;
+        });
         HubFocusMemory.setForHub(widget.hub.hubKey, _focusedIndex);
         _scrollToIndex(_focusedIndex);
-        setState(() {});
       } else if (widget.onNavigateToSidebar != null) {
         // At leftmost item: navigate to sidebar
         widget.onNavigateToSidebar!();
@@ -248,10 +247,11 @@ class HubSectionState extends State<HubSection> {
     // Right: move to next item, ALWAYS consume to prevent escape
     if (key.isRightKey) {
       if (_focusedIndex < itemCount - 1) {
-        _focusedIndex++;
+        setState(() {
+          _focusedIndex++;
+        });
         HubFocusMemory.setForHub(widget.hub.hubKey, _focusedIndex);
         _scrollToIndex(_focusedIndex);
-        setState(() {});
       }
       return KeyEventResult.handled;
     }
@@ -370,16 +370,26 @@ class HubSectionState extends State<HubSection> {
               builder: (context, constraints) {
                 // Responsive base card width for posters (2:3 aspect ratio)
                 final screenWidth = constraints.maxWidth;
-                final baseCardWidth = ScreenBreakpoints.isLargeDesktop(screenWidth)
-                    ? 220.0
-                    : ScreenBreakpoints.isDesktop(screenWidth)
-                    ? 200.0
-                    : ScreenBreakpoints.isWideTablet(screenWidth)
-                    ? 190.0
-                    : 160.0;
+                final settings = context.watch<SettingsProvider>();
+                final densityScale = switch (settings.libraryDensity) {
+                  LibraryDensity.compact => 0.8,
+                  LibraryDensity.normal => 1.0,
+                  LibraryDensity.comfortable => 1.15,
+                };
+                double baseWidth;
+                if (ScreenBreakpoints.isLargeDesktop(screenWidth)) {
+                  baseWidth = 220.0;
+                } else if (ScreenBreakpoints.isDesktop(screenWidth)) {
+                  baseWidth = 200.0;
+                } else if (ScreenBreakpoints.isWideTablet(screenWidth)) {
+                  baseWidth = 190.0;
+                } else {
+                  baseWidth = 160.0;
+                }
+                final baseCardWidth = baseWidth * densityScale;
 
                 // Get episode poster mode setting
-                final episodePosterMode = context.watch<SettingsProvider>().episodePosterMode;
+                final episodePosterMode = settings.episodePosterMode;
 
                 // Determine hub content type for layout decisions
                 final hasEpisodes = widget.hub.items.any((item) => item.usesWideAspectRatio(episodePosterMode));
@@ -460,11 +470,11 @@ class HubSectionState extends State<HubSection> {
 
   /// Called when an item is tapped (mouse/touch)
   void _onItemTapped(int index) {
-    // Update focus to tapped item and request hub focus
-    _focusedIndex = index;
+    setState(() {
+      _focusedIndex = index;
+    });
     HubFocusMemory.setForHub(widget.hub.hubKey, index);
     _hubFocusNode.requestFocus();
-    setState(() {});
   }
 }
 

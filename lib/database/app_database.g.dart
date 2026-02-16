@@ -158,6 +158,15 @@ class $DownloadedMediaTable extends DownloadedMedia with TableInfo<$DownloadedMe
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _bgTaskIdMeta = const VerificationMeta('bgTaskId');
+  @override
+  late final GeneratedColumn<String> bgTaskId = GeneratedColumn<String>(
+    'bg_task_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -176,6 +185,7 @@ class $DownloadedMediaTable extends DownloadedMedia with TableInfo<$DownloadedMe
     downloadedAt,
     errorMessage,
     retryCount,
+    bgTaskId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -256,6 +266,9 @@ class $DownloadedMediaTable extends DownloadedMedia with TableInfo<$DownloadedMe
     if (data.containsKey('retry_count')) {
       context.handle(_retryCountMeta, retryCount.isAcceptableOrUnknown(data['retry_count']!, _retryCountMeta));
     }
+    if (data.containsKey('bg_task_id')) {
+      context.handle(_bgTaskIdMeta, bgTaskId.isAcceptableOrUnknown(data['bg_task_id']!, _bgTaskIdMeta));
+    }
     return context;
   }
 
@@ -287,6 +300,7 @@ class $DownloadedMediaTable extends DownloadedMedia with TableInfo<$DownloadedMe
       downloadedAt: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}downloaded_at']),
       errorMessage: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}error_message']),
       retryCount: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}retry_count'])!,
+      bgTaskId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}bg_task_id']),
     );
   }
 
@@ -313,6 +327,7 @@ class DownloadedMediaItem extends DataClass implements Insertable<DownloadedMedi
   final int? downloadedAt;
   final String? errorMessage;
   final int retryCount;
+  final String? bgTaskId;
   const DownloadedMediaItem({
     required this.id,
     required this.serverId,
@@ -330,6 +345,7 @@ class DownloadedMediaItem extends DataClass implements Insertable<DownloadedMedi
     this.downloadedAt,
     this.errorMessage,
     required this.retryCount,
+    this.bgTaskId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -364,6 +380,9 @@ class DownloadedMediaItem extends DataClass implements Insertable<DownloadedMedi
       map['error_message'] = Variable<String>(errorMessage);
     }
     map['retry_count'] = Variable<int>(retryCount);
+    if (!nullToAbsent || bgTaskId != null) {
+      map['bg_task_id'] = Variable<String>(bgTaskId);
+    }
     return map;
   }
 
@@ -387,6 +406,7 @@ class DownloadedMediaItem extends DataClass implements Insertable<DownloadedMedi
       downloadedAt: downloadedAt == null && nullToAbsent ? const Value.absent() : Value(downloadedAt),
       errorMessage: errorMessage == null && nullToAbsent ? const Value.absent() : Value(errorMessage),
       retryCount: Value(retryCount),
+      bgTaskId: bgTaskId == null && nullToAbsent ? const Value.absent() : Value(bgTaskId),
     );
   }
 
@@ -409,6 +429,7 @@ class DownloadedMediaItem extends DataClass implements Insertable<DownloadedMedi
       downloadedAt: serializer.fromJson<int?>(json['downloadedAt']),
       errorMessage: serializer.fromJson<String?>(json['errorMessage']),
       retryCount: serializer.fromJson<int>(json['retryCount']),
+      bgTaskId: serializer.fromJson<String?>(json['bgTaskId']),
     );
   }
   @override
@@ -431,6 +452,7 @@ class DownloadedMediaItem extends DataClass implements Insertable<DownloadedMedi
       'downloadedAt': serializer.toJson<int?>(downloadedAt),
       'errorMessage': serializer.toJson<String?>(errorMessage),
       'retryCount': serializer.toJson<int>(retryCount),
+      'bgTaskId': serializer.toJson<String?>(bgTaskId),
     };
   }
 
@@ -451,6 +473,7 @@ class DownloadedMediaItem extends DataClass implements Insertable<DownloadedMedi
     Value<int?> downloadedAt = const Value.absent(),
     Value<String?> errorMessage = const Value.absent(),
     int? retryCount,
+    Value<String?> bgTaskId = const Value.absent(),
   }) => DownloadedMediaItem(
     id: id ?? this.id,
     serverId: serverId ?? this.serverId,
@@ -468,6 +491,7 @@ class DownloadedMediaItem extends DataClass implements Insertable<DownloadedMedi
     downloadedAt: downloadedAt.present ? downloadedAt.value : this.downloadedAt,
     errorMessage: errorMessage.present ? errorMessage.value : this.errorMessage,
     retryCount: retryCount ?? this.retryCount,
+    bgTaskId: bgTaskId.present ? bgTaskId.value : this.bgTaskId,
   );
   DownloadedMediaItem copyWithCompanion(DownloadedMediaCompanion data) {
     return DownloadedMediaItem(
@@ -489,6 +513,7 @@ class DownloadedMediaItem extends DataClass implements Insertable<DownloadedMedi
       downloadedAt: data.downloadedAt.present ? data.downloadedAt.value : this.downloadedAt,
       errorMessage: data.errorMessage.present ? data.errorMessage.value : this.errorMessage,
       retryCount: data.retryCount.present ? data.retryCount.value : this.retryCount,
+      bgTaskId: data.bgTaskId.present ? data.bgTaskId.value : this.bgTaskId,
     );
   }
 
@@ -510,7 +535,8 @@ class DownloadedMediaItem extends DataClass implements Insertable<DownloadedMedi
           ..write('thumbPath: $thumbPath, ')
           ..write('downloadedAt: $downloadedAt, ')
           ..write('errorMessage: $errorMessage, ')
-          ..write('retryCount: $retryCount')
+          ..write('retryCount: $retryCount, ')
+          ..write('bgTaskId: $bgTaskId')
           ..write(')'))
         .toString();
   }
@@ -533,6 +559,7 @@ class DownloadedMediaItem extends DataClass implements Insertable<DownloadedMedi
     downloadedAt,
     errorMessage,
     retryCount,
+    bgTaskId,
   );
   @override
   bool operator ==(Object other) =>
@@ -553,7 +580,8 @@ class DownloadedMediaItem extends DataClass implements Insertable<DownloadedMedi
           other.thumbPath == this.thumbPath &&
           other.downloadedAt == this.downloadedAt &&
           other.errorMessage == this.errorMessage &&
-          other.retryCount == this.retryCount);
+          other.retryCount == this.retryCount &&
+          other.bgTaskId == this.bgTaskId);
 }
 
 class DownloadedMediaCompanion extends UpdateCompanion<DownloadedMediaItem> {
@@ -573,6 +601,7 @@ class DownloadedMediaCompanion extends UpdateCompanion<DownloadedMediaItem> {
   final Value<int?> downloadedAt;
   final Value<String?> errorMessage;
   final Value<int> retryCount;
+  final Value<String?> bgTaskId;
   const DownloadedMediaCompanion({
     this.id = const Value.absent(),
     this.serverId = const Value.absent(),
@@ -590,6 +619,7 @@ class DownloadedMediaCompanion extends UpdateCompanion<DownloadedMediaItem> {
     this.downloadedAt = const Value.absent(),
     this.errorMessage = const Value.absent(),
     this.retryCount = const Value.absent(),
+    this.bgTaskId = const Value.absent(),
   });
   DownloadedMediaCompanion.insert({
     this.id = const Value.absent(),
@@ -608,6 +638,7 @@ class DownloadedMediaCompanion extends UpdateCompanion<DownloadedMediaItem> {
     this.downloadedAt = const Value.absent(),
     this.errorMessage = const Value.absent(),
     this.retryCount = const Value.absent(),
+    this.bgTaskId = const Value.absent(),
   }) : serverId = Value(serverId),
        ratingKey = Value(ratingKey),
        globalKey = Value(globalKey),
@@ -630,6 +661,7 @@ class DownloadedMediaCompanion extends UpdateCompanion<DownloadedMediaItem> {
     Expression<int>? downloadedAt,
     Expression<String>? errorMessage,
     Expression<int>? retryCount,
+    Expression<String>? bgTaskId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -648,6 +680,7 @@ class DownloadedMediaCompanion extends UpdateCompanion<DownloadedMediaItem> {
       if (downloadedAt != null) 'downloaded_at': downloadedAt,
       if (errorMessage != null) 'error_message': errorMessage,
       if (retryCount != null) 'retry_count': retryCount,
+      if (bgTaskId != null) 'bg_task_id': bgTaskId,
     });
   }
 
@@ -668,6 +701,7 @@ class DownloadedMediaCompanion extends UpdateCompanion<DownloadedMediaItem> {
     Value<int?>? downloadedAt,
     Value<String?>? errorMessage,
     Value<int>? retryCount,
+    Value<String?>? bgTaskId,
   }) {
     return DownloadedMediaCompanion(
       id: id ?? this.id,
@@ -686,6 +720,7 @@ class DownloadedMediaCompanion extends UpdateCompanion<DownloadedMediaItem> {
       downloadedAt: downloadedAt ?? this.downloadedAt,
       errorMessage: errorMessage ?? this.errorMessage,
       retryCount: retryCount ?? this.retryCount,
+      bgTaskId: bgTaskId ?? this.bgTaskId,
     );
   }
 
@@ -740,6 +775,9 @@ class DownloadedMediaCompanion extends UpdateCompanion<DownloadedMediaItem> {
     if (retryCount.present) {
       map['retry_count'] = Variable<int>(retryCount.value);
     }
+    if (bgTaskId.present) {
+      map['bg_task_id'] = Variable<String>(bgTaskId.value);
+    }
     return map;
   }
 
@@ -761,7 +799,8 @@ class DownloadedMediaCompanion extends UpdateCompanion<DownloadedMediaItem> {
           ..write('thumbPath: $thumbPath, ')
           ..write('downloadedAt: $downloadedAt, ')
           ..write('errorMessage: $errorMessage, ')
-          ..write('retryCount: $retryCount')
+          ..write('retryCount: $retryCount, ')
+          ..write('bgTaskId: $bgTaskId')
           ..write(')'))
         .toString();
   }
@@ -2042,6 +2081,7 @@ typedef $$DownloadedMediaTableCreateCompanionBuilder =
       Value<int?> downloadedAt,
       Value<String?> errorMessage,
       Value<int> retryCount,
+      Value<String?> bgTaskId,
     });
 typedef $$DownloadedMediaTableUpdateCompanionBuilder =
     DownloadedMediaCompanion Function({
@@ -2061,6 +2101,7 @@ typedef $$DownloadedMediaTableUpdateCompanionBuilder =
       Value<int?> downloadedAt,
       Value<String?> errorMessage,
       Value<int> retryCount,
+      Value<String?> bgTaskId,
     });
 
 class $$DownloadedMediaTableFilterComposer extends Composer<_$AppDatabase, $DownloadedMediaTable> {
@@ -2116,6 +2157,9 @@ class $$DownloadedMediaTableFilterComposer extends Composer<_$AppDatabase, $Down
 
   ColumnFilters<int> get retryCount =>
       $composableBuilder(column: $table.retryCount, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get bgTaskId =>
+      $composableBuilder(column: $table.bgTaskId, builder: (column) => ColumnFilters(column));
 }
 
 class $$DownloadedMediaTableOrderingComposer extends Composer<_$AppDatabase, $DownloadedMediaTable> {
@@ -2172,6 +2216,9 @@ class $$DownloadedMediaTableOrderingComposer extends Composer<_$AppDatabase, $Do
 
   ColumnOrderings<int> get retryCount =>
       $composableBuilder(column: $table.retryCount, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get bgTaskId =>
+      $composableBuilder(column: $table.bgTaskId, builder: (column) => ColumnOrderings(column));
 }
 
 class $$DownloadedMediaTableAnnotationComposer extends Composer<_$AppDatabase, $DownloadedMediaTable> {
@@ -2218,6 +2265,8 @@ class $$DownloadedMediaTableAnnotationComposer extends Composer<_$AppDatabase, $
       $composableBuilder(column: $table.errorMessage, builder: (column) => column);
 
   GeneratedColumn<int> get retryCount => $composableBuilder(column: $table.retryCount, builder: (column) => column);
+
+  GeneratedColumn<String> get bgTaskId => $composableBuilder(column: $table.bgTaskId, builder: (column) => column);
 }
 
 class $$DownloadedMediaTableTableManager
@@ -2261,6 +2310,7 @@ class $$DownloadedMediaTableTableManager
                 Value<int?> downloadedAt = const Value.absent(),
                 Value<String?> errorMessage = const Value.absent(),
                 Value<int> retryCount = const Value.absent(),
+                Value<String?> bgTaskId = const Value.absent(),
               }) => DownloadedMediaCompanion(
                 id: id,
                 serverId: serverId,
@@ -2278,6 +2328,7 @@ class $$DownloadedMediaTableTableManager
                 downloadedAt: downloadedAt,
                 errorMessage: errorMessage,
                 retryCount: retryCount,
+                bgTaskId: bgTaskId,
               ),
           createCompanionCallback:
               ({
@@ -2297,6 +2348,7 @@ class $$DownloadedMediaTableTableManager
                 Value<int?> downloadedAt = const Value.absent(),
                 Value<String?> errorMessage = const Value.absent(),
                 Value<int> retryCount = const Value.absent(),
+                Value<String?> bgTaskId = const Value.absent(),
               }) => DownloadedMediaCompanion.insert(
                 id: id,
                 serverId: serverId,
@@ -2314,6 +2366,7 @@ class $$DownloadedMediaTableTableManager
                 downloadedAt: downloadedAt,
                 errorMessage: errorMessage,
                 retryCount: retryCount,
+                bgTaskId: bgTaskId,
               ),
           withReferenceMapper: (p0) => p0.map((e) => (e.readTable(table), BaseReferences(db, table, e))).toList(),
           prefetchHooksCallback: null,

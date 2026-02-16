@@ -46,7 +46,12 @@
     "settings": "Instellingen",
     "mute": "Dempen",
     "ok": "OK",
-    "loading": "Laden..."
+    "loading": "Laden...",
+    "reconnect": "Opnieuw verbinden",
+    "exitConfirmTitle": "App afsluiten?",
+    "exitConfirmMessage": "Weet je zeker dat je wilt afsluiten?",
+    "dontAskAgain": "Niet meer vragen",
+    "exit": "Afsluiten"
   },
   "screens": {
     "licenses": "Licenties",
@@ -185,7 +190,9 @@
     "matchContentFrameRate": "Inhoudsframesnelheid afstemmen",
     "matchContentFrameRateDescription": "Pas de schermverversingssnelheid aan op de video-inhoud, vermindert haperingen en bespaart batterij",
     "requireProfileSelectionOnOpen": "Vraag om profiel bij openen",
-    "requireProfileSelectionOnOpenDescription": "Toon profielselectie telkens wanneer de app wordt geopend"
+    "requireProfileSelectionOnOpenDescription": "Toon profielselectie telkens wanneer de app wordt geopend",
+    "confirmExitOnBack": "Bevestigen voor afsluiten",
+    "confirmExitOnBackDescription": "Toon een bevestigingsvenster bij het drukken op terug om de app af te sluiten"
   },
   "search": {
     "hint": "Zoek films, series, muziek...",
@@ -273,6 +280,7 @@
   },
   "tooltips": {
     "shufflePlay": "Willekeurig afspelen",
+    "playTrailer": "Trailer afspelen",
     "markAsWatched": "Markeer als gekeken",
     "markAsUnwatched": "Markeer als ongekeken"
   },
@@ -419,6 +427,7 @@
     "playEpisode": "S${season}E${episode}",
     "overview": "Overzicht",
     "cast": "Acteurs",
+    "extras": "Trailers & Extra's",
     "seasons": "Seizoenen",
     "studio": "Studio",
     "rating": "Leeftijd",
@@ -527,7 +536,47 @@
   },
   "navigation": {
     "libraries": "Bibliotheken",
-    "downloads": "Downloads"
+    "downloads": "Downloads",
+    "liveTv": "Live TV"
+  },
+  "liveTv": {
+    "title": "Live TV",
+    "channels": "Zenders",
+    "guide": "Gids",
+    "recordings": "Opnames",
+    "subscriptions": "Opnameregels",
+    "scheduled": "Gepland",
+    "noChannels": "Geen zenders beschikbaar",
+    "noDvr": "Geen DVR geconfigureerd op een server",
+    "tuneFailed": "Kan zender niet afstemmen",
+    "loading": "Zenders laden...",
+    "nowPlaying": "Nu aan het afspelen",
+    "record": "Opnemen",
+    "recordSeries": "Serie opnemen",
+    "cancelRecording": "Opname annuleren",
+    "deleteSubscription": "Opnameregel verwijderen",
+    "deleteSubscriptionConfirm": "Weet je zeker dat je deze opnameregel wilt verwijderen?",
+    "subscriptionDeleted": "Opnameregel verwijderd",
+    "noPrograms": "Geen programmagegevens beschikbaar",
+    "noRecordings": "Geen opnames gepland",
+    "noSubscriptions": "Geen opnameregels",
+    "channelNumber": "Kanaal ${number}",
+    "live": "LIVE",
+    "hd": "HD",
+    "premiere": "NIEUW",
+    "reloadGuide": "Gids herladen",
+    "guideReloaded": "Gidsgegevens herladen",
+    "allChannels": "Alle zenders",
+    "now": "Nu",
+    "today": "Vandaag",
+    "midnight": "Middernacht",
+    "overnight": "Nacht",
+    "morning": "Ochtend",
+    "daytime": "Overdag",
+    "evening": "Avond",
+    "lateNight": "Late avond",
+    "whatsOn": "Nu op TV",
+    "watchChannel": "Kanaal bekijken"
   },
   "downloads": {
     "title": "Downloads",
@@ -758,5 +807,22 @@
     "hdr": "HDR",
     "audioOutput": "Audio-uitvoer",
     "performanceOverlay": "Prestatie-overlay"
+  },
+  "externalPlayer": {
+    "title": "Externe speler",
+    "useExternalPlayer": "Externe speler gebruiken",
+    "useExternalPlayerDescription": "Open video's in een externe app in plaats van de ingebouwde speler",
+    "selectPlayer": "Speler selecteren",
+    "systemDefault": "Systeemstandaard",
+    "addCustomPlayer": "Aangepaste speler toevoegen",
+    "playerName": "Spelernaam",
+    "playerCommand": "Commando",
+    "playerPackage": "Pakketnaam",
+    "playerUrlScheme": "URL-schema",
+    "customPlayer": "Aangepaste speler",
+    "off": "Uit",
+    "launchFailed": "Kan externe speler niet openen",
+    "appNotInstalled": "${name} is niet geïnstalleerd",
+    "playInExternalPlayer": "Afspelen in externe speler"
   }
 }

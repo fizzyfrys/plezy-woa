@@ -4,6 +4,7 @@ import '../models/hotkey_model.dart';
 import 'package:plezy/utils/app_logger.dart';
 import '../i18n/strings.g.dart';
 import '../models/mpv_config_models.dart';
+import '../models/external_player_models.dart';
 import 'base_shared_preferences_service.dart';
 import '../utils/platform_detector.dart';
 
@@ -70,10 +71,14 @@ class SettingsService extends BaseSharedPreferencesService {
   static const String _keyShowUnwatchedCount = 'show_unwatched_count';
   static const String _keyGlobalShaderPreset = 'global_shader_preset';
   static const String _keyRequireProfileSelectionOnOpen = 'require_profile_selection_on_open';
+  static const String _keyUseExternalPlayer = 'use_external_player';
+  static const String _keySelectedExternalPlayer = 'selected_external_player';
+  static const String _keyCustomExternalPlayers = 'custom_external_players';
+  static const String _keyConfirmExitOnBack = 'confirm_exit_on_back';
 
   SettingsService._();
 
-  static Future<SettingsService> getInstance() async {
+  static Future<SettingsService> getInstance() {
     return BaseSharedPreferencesService.initializeInstance(() => SettingsService._());
   }
 
@@ -812,7 +817,7 @@ class SettingsService extends BaseSharedPreferencesService {
     final localeString = prefs.getString(_keyAppLocale);
     if (localeString == null) return AppLocaleUtils.findDeviceLocale();
 
-    return AppLocale.values.firstWhere((locale) => locale.languageCode == localeString, orElse: () => AppLocale.en);
+    return AppLocale.values.asNameMap()[localeString] ?? AppLocale.en;
   }
 
   // Track Selection Settings
@@ -1048,6 +1053,70 @@ class SettingsService extends BaseSharedPreferencesService {
     return prefs.getBool(_keyRequireProfileSelectionOnOpen) ?? false;
   }
 
+  // External Player
+  Future<void> setUseExternalPlayer(bool enabled) async {
+    await prefs.setBool(_keyUseExternalPlayer, enabled);
+  }
+
+  bool getUseExternalPlayer() {
+    return prefs.getBool(_keyUseExternalPlayer) ?? false;
+  }
+
+  Future<void> setSelectedExternalPlayer(ExternalPlayer player) async {
+    await prefs.setString(_keySelectedExternalPlayer, player.toJsonString());
+  }
+
+  ExternalPlayer getSelectedExternalPlayer() {
+    final jsonString = prefs.getString(_keySelectedExternalPlayer);
+    if (jsonString == null) return KnownPlayers.systemDefault;
+    try {
+      return ExternalPlayer.fromJsonString(jsonString);
+    } catch (_) {
+      return KnownPlayers.systemDefault;
+    }
+  }
+
+  Future<void> setCustomExternalPlayers(List<ExternalPlayer> players) async {
+    final jsonString = json.encode(players.map((p) => p.toJson()).toList());
+    await prefs.setString(_keyCustomExternalPlayers, jsonString);
+  }
+
+  List<ExternalPlayer> getCustomExternalPlayers() {
+    final jsonString = prefs.getString(_keyCustomExternalPlayers);
+    if (jsonString == null) return [];
+    try {
+      final List<dynamic> decoded = json.decode(jsonString);
+      return decoded.map((e) => ExternalPlayer.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> addCustomExternalPlayer(ExternalPlayer player) async {
+    final players = getCustomExternalPlayers();
+    players.add(player);
+    await setCustomExternalPlayers(players);
+  }
+
+  Future<void> removeCustomExternalPlayer(String id) async {
+    final players = getCustomExternalPlayers();
+    players.removeWhere((p) => p.id == id);
+    await setCustomExternalPlayers(players);
+    // If the removed player was selected, reset to system default
+    if (getSelectedExternalPlayer().id == id) {
+      await setSelectedExternalPlayer(KnownPlayers.systemDefault);
+    }
+  }
+
+  // Confirm Exit on Back (Android TV)
+  Future<void> setConfirmExitOnBack(bool value) async {
+    await prefs.setBool(_keyConfirmExitOnBack, value);
+  }
+
+  bool getConfirmExitOnBack() {
+    return prefs.getBool(_keyConfirmExitOnBack) ?? true; // Default: enabled
+  }
+
   // Reset all settings to defaults
   Future<void> resetAllSettings() async {
     await Future.wait([
@@ -1098,6 +1167,10 @@ class SettingsService extends BaseSharedPreferencesService {
       prefs.remove(_keyShowUnwatchedCount),
       prefs.remove(_keyGlobalShaderPreset),
       prefs.remove(_keyRequireProfileSelectionOnOpen),
+      prefs.remove(_keyUseExternalPlayer),
+      prefs.remove(_keySelectedExternalPlayer),
+      prefs.remove(_keyCustomExternalPlayers),
+      prefs.remove(_keyConfirmExitOnBack),
     ]);
   }
 

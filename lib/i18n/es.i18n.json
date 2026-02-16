@@ -46,7 +46,12 @@
     "settings": "Ajustes",
     "mute": "Silencio",
     "ok": "OK",
-    "loading": "Cargando..."
+    "loading": "Cargando...",
+    "reconnect": "Reconectar",
+    "exitConfirmTitle": "¿Salir de la app?",
+    "exitConfirmMessage": "¿Estás seguro de que quieres salir?",
+    "dontAskAgain": "No volver a preguntar",
+    "exit": "Salir"
   },
   "screens": {
     "licenses": "Licencias",
@@ -185,7 +190,9 @@
     "matchContentFrameRate": "Ajustar frecuencia de actualización",
     "matchContentFrameRateDescription": "Ajustar la frecuencia de actualización de la pantalla para que coincida con el video, reduciendo tirones y ahorrando batería",
     "requireProfileSelectionOnOpen": "Pedir perfil al abrir la app",
-    "requireProfileSelectionOnOpenDescription": "Mostrar selección de perfil cada vez que se abre la aplicación"
+    "requireProfileSelectionOnOpenDescription": "Mostrar selección de perfil cada vez que se abre la aplicación",
+    "confirmExitOnBack": "Confirmar antes de salir",
+    "confirmExitOnBackDescription": "Mostrar un diálogo de confirmación al presionar atrás para salir de la app"
   },
   "search": {
     "hint": "Buscar películas, series, música...",
@@ -273,6 +280,7 @@
   },
   "tooltips": {
     "shufflePlay": "Reproducción aleatoria",
+    "playTrailer": "Reproducir tráiler",
     "markAsWatched": "Marcar como visto",
     "markAsUnwatched": "Marcar como no visto"
   },
@@ -419,6 +427,7 @@
     "playEpisode": "T${season}E${episode}",
     "overview": "Resumen",
     "cast": "Reparto",
+    "extras": "Tráilers y Extras",
     "seasons": "Temporadas",
     "studio": "Estudio",
     "rating": "Calificación",
@@ -527,7 +536,47 @@
   },
   "navigation": {
     "libraries": "Bibliotecas",
-    "downloads": "Descargas"
+    "downloads": "Descargas",
+    "liveTv": "TV en vivo"
+  },
+  "liveTv": {
+    "title": "TV en vivo",
+    "channels": "Canales",
+    "guide": "Guía",
+    "recordings": "Grabaciones",
+    "subscriptions": "Reglas de grabación",
+    "scheduled": "Programadas",
+    "noChannels": "No hay canales disponibles",
+    "noDvr": "No hay DVR configurado en ningún servidor",
+    "tuneFailed": "Error al sintonizar el canal",
+    "loading": "Cargando canales...",
+    "nowPlaying": "Reproduciendo ahora",
+    "record": "Grabar",
+    "recordSeries": "Grabar serie",
+    "cancelRecording": "Cancelar grabación",
+    "deleteSubscription": "Eliminar regla de grabación",
+    "deleteSubscriptionConfirm": "¿Estás seguro de que quieres eliminar esta regla de grabación?",
+    "subscriptionDeleted": "Regla de grabación eliminada",
+    "noPrograms": "No hay datos de programación disponibles",
+    "noRecordings": "No hay grabaciones programadas",
+    "noSubscriptions": "No hay reglas de grabación",
+    "channelNumber": "Canal ${number}",
+    "live": "EN VIVO",
+    "hd": "HD",
+    "premiere": "NUEVO",
+    "reloadGuide": "Recargar guía",
+    "guideReloaded": "Datos de la guía recargados",
+    "allChannels": "Todos los canales",
+    "now": "Ahora",
+    "today": "Hoy",
+    "midnight": "Medianoche",
+    "overnight": "Madrugada",
+    "morning": "Mañana",
+    "daytime": "Día",
+    "evening": "Noche",
+    "lateNight": "Trasnoche",
+    "whatsOn": "En emisión",
+    "watchChannel": "Ver canal"
   },
   "collections": {
     "title": "Colecciones",
@@ -758,5 +807,22 @@
     "hdr": "HDR",
     "audioOutput": "Salida de audio",
     "performanceOverlay": "Indicador de rendimiento"
+  },
+  "externalPlayer": {
+    "title": "Reproductor externo",
+    "useExternalPlayer": "Usar reproductor externo",
+    "useExternalPlayerDescription": "Abrir vídeos en una app externa en lugar del reproductor integrado",
+    "selectPlayer": "Seleccionar reproductor",
+    "systemDefault": "Predeterminado del sistema",
+    "addCustomPlayer": "Añadir reproductor personalizado",
+    "playerName": "Nombre del reproductor",
+    "playerCommand": "Comando",
+    "playerPackage": "Nombre del paquete",
+    "playerUrlScheme": "Esquema URL",
+    "customPlayer": "Reproductor personalizado",
+    "off": "Desactivado",
+    "launchFailed": "No se pudo abrir el reproductor externo",
+    "appNotInstalled": "${name} no está instalado",
+    "playInExternalPlayer": "Reproducir en reproductor externo"
   }
 }

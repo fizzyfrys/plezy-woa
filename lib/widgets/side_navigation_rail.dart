@@ -13,6 +13,7 @@ import '../models/plex_library.dart';
 import '../navigation/navigation_tabs.dart';
 import '../providers/hidden_libraries_provider.dart';
 import '../providers/libraries_provider.dart';
+import '../providers/multi_server_provider.dart';
 import '../services/fullscreen_state_manager.dart';
 import '../theme/mono_tokens.dart';
 import '../i18n/strings.g.dart';
@@ -79,13 +80,12 @@ class NavigationRailItem extends StatelessWidget {
           borderRadius: borderRadius,
           child: Container(
             decoration: BoxDecoration(
-              color: isSelected && isFocused
-                  ? t.text.withValues(alpha: 0.15) // Selected + focused
-                  : isSelected
-                  ? t.text.withValues(alpha: 0.1) // Just selected
-                  : isFocused
-                  ? t.text.withValues(alpha: 0.12) // Just focused (more visible)
-                  : null,
+              color: () {
+                if (isSelected && isFocused) return t.text.withValues(alpha: 0.15);
+                if (isSelected) return t.text.withValues(alpha: 0.1);
+                if (isFocused) return t.text.withValues(alpha: 0.12);
+                return null;
+              }(),
               borderRadius: borderRadius,
             ),
             clipBehavior: Clip.hardEdge,
@@ -107,9 +107,11 @@ class NavigationRailItem extends StatelessWidget {
                       ),
                       const SizedBox(width: 11),
                       Expanded(
-                        child: useSimpleLayout
-                            ? label
-                            : AnimatedOpacity(opacity: isCollapsed ? 0.0 : 1.0, duration: t.fast, child: label),
+                        child: () {
+                          if (useSimpleLayout) return label;
+                          final opacity = isCollapsed ? 0.0 : 1.0;
+                          return AnimatedOpacity(opacity: opacity, duration: t.fast, child: label);
+                        }(),
                       ),
                     ],
                   ),
@@ -130,11 +132,15 @@ class SideNavigationRail extends StatefulWidget {
   final bool isOfflineMode;
   final bool isSidebarFocused;
   final bool alwaysExpanded;
+  final bool isReconnecting;
   final ValueChanged<int> onDestinationSelected;
   final ValueChanged<String> onLibrarySelected;
 
   /// Called when RIGHT arrow is pressed to navigate to content without selecting.
   final VoidCallback? onNavigateToContent;
+
+  /// Called when the user taps the reconnect button in offline mode.
+  final VoidCallback? onReconnect;
 
   const SideNavigationRail({
     super.key,
@@ -143,9 +149,11 @@ class SideNavigationRail extends StatefulWidget {
     this.isOfflineMode = false,
     this.isSidebarFocused = false,
     this.alwaysExpanded = false,
+    this.isReconnecting = false,
     required this.onDestinationSelected,
     required this.onLibrarySelected,
     this.onNavigateToContent,
+    this.onReconnect,
   });
 
   @override
@@ -157,6 +165,7 @@ class SideNavigationRailState extends State<SideNavigationRail> {
 
   // Collapsed/expanded state
   bool _isHovered = false;
+  bool _isTouchExpanded = false;
   Timer? _collapseTimer;
   static const double collapsedWidth = 80.0;
   static const double expandedWidth = 220.0;
@@ -168,31 +177,24 @@ class SideNavigationRailState extends State<SideNavigationRail> {
   static const _kSearch = 'search';
   static const _kDownloads = 'downloads';
   static const _kSettings = 'settings';
+  static const _kReconnect = 'reconnect';
 
   // Unified focus state tracker for all nav items (main + libraries)
   late final FocusMemoryTracker _focusTracker;
 
   /// Whether the sidebar should be expanded (always, hover, or focus)
-  bool get _shouldExpand => widget.alwaysExpanded || _isHovered || widget.isSidebarFocused;
+  bool get _shouldExpand => widget.alwaysExpanded || _isHovered || _isTouchExpanded || widget.isSidebarFocused;
 
   @override
   void initState() {
     super.initState();
     _focusTracker = FocusMemoryTracker(
       onFocusChanged: () {
+        // ignore: no-empty-block - setState triggers rebuild to update focus styling
         if (mounted) setState(() {});
       },
       debugLabelPrefix: 'nav',
     );
-  }
-
-  @override
-  void didUpdateWidget(SideNavigationRail oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Trigger rebuild when focus state changes
-    if (oldWidget.isSidebarFocused != widget.isSidebarFocused) {
-      setState(() {});
-    }
   }
 
   @override
@@ -202,8 +204,18 @@ class SideNavigationRailState extends State<SideNavigationRail> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant SideNavigationRail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Auto-collapse after navigation (selection changed)
+    if (oldWidget.selectedIndex != widget.selectedIndex || oldWidget.selectedLibraryKey != widget.selectedLibraryKey) {
+      _isTouchExpanded = false;
+    }
+  }
+
   void _onHoverEnter() {
     _collapseTimer?.cancel();
+    _isTouchExpanded = false; // Mouse takes over
     if (!_isHovered) {
       setState(() => _isHovered = true);
     }
@@ -237,7 +249,22 @@ class SideNavigationRailState extends State<SideNavigationRail> {
 
   /// Build the set of valid focus keys (main nav + current libraries)
   Set<String> _buildValidFocusKeys(List<PlexLibrary> libraries) {
-    return {_kHome, _kLibraries, _kSearch, _kDownloads, _kSettings, ...libraries.map((lib) => lib.globalKey)};
+    return {
+      _kHome,
+      _kLibraries,
+      _kSearch,
+      _kDownloads,
+      _kSettings,
+      _kReconnect,
+      ...libraries.map((lib) => lib.globalKey),
+    };
+  }
+
+  /// Collapse the sidebar (resets touch-expand state).
+  void collapse() {
+    if (_isTouchExpanded) {
+      setState(() => _isTouchExpanded = false);
+    }
   }
 
   /// Reload libraries (called when servers change or profile switches)
@@ -297,103 +324,181 @@ class SideNavigationRailState extends State<SideNavigationRail> {
     return ListenableBuilder(
       listenable: FullscreenStateManager(),
       builder: (context, _) {
-        return MouseRegion(
-          onEnter: (_) => _onHoverEnter(),
-          onExit: (_) => _onHoverExit(),
-          child: AnimatedContainer(
-            duration: t.normal,
-            curve: Curves.easeOutCubic,
-            width: isCollapsed ? collapsedWidth : expandedWidth,
-            clipBehavior: Clip.hardEdge,
-            decoration: BoxDecoration(color: t.surface),
-            child: Column(
-              children: [
-                // Safe area for status bar and macOS traffic lights
-                SizedBox(height: _getTopPadding(context)),
-
-                // Navigation content
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    clipBehavior: Clip.hardEdge,
+        return TapRegion(
+          onTapOutside: (_) {
+            if (_isTouchExpanded) {
+              setState(() => _isTouchExpanded = false);
+            }
+          },
+          child: MouseRegion(
+            onEnter: (_) => _onHoverEnter(),
+            onExit: (_) => _onHoverExit(),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: isCollapsed ? () => setState(() => _isTouchExpanded = true) : null,
+              child: AnimatedContainer(
+                duration: t.normal,
+                curve: Curves.easeOutCubic,
+                width: isCollapsed ? collapsedWidth : expandedWidth,
+                clipBehavior: Clip.hardEdge,
+                decoration: BoxDecoration(color: t.surface),
+                child: IgnorePointer(
+                  ignoring: isCollapsed,
+                  child: Column(
                     children: [
-                      // In offline mode, only show Downloads and Settings
-                      if (!widget.isOfflineMode) ...[
-                        // Home
-                        _buildNavItem(
-                          icon: Symbols.home_rounded,
-                          selectedIcon: Symbols.home_rounded,
-                          label: Translations.of(context).common.home,
-                          isSelected: widget.selectedIndex == 0,
-                          isFocused: _focusTracker.isFocused(_kHome),
-                          onTap: () => widget.onDestinationSelected(0),
-                          focusNode: _focusTracker.get(_kHome),
-                          isCollapsed: isCollapsed,
+                      // Safe area for status bar and macOS traffic lights
+                      SizedBox(height: _getTopPadding(context)),
+
+                      // Navigation content
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          clipBehavior: Clip.hardEdge,
+                          children: [
+                            // Reconnect button when offline
+                            if (widget.isOfflineMode && widget.onReconnect != null) ...[
+                              _buildReconnectItem(isCollapsed: isCollapsed),
+                              const SizedBox(height: 8),
+                            ],
+
+                            // In online mode, show full navigation
+                            if (!widget.isOfflineMode) ...[
+                              // Home
+                              _buildNavItem(
+                                icon: Symbols.home_rounded,
+                                selectedIcon: Symbols.home_rounded,
+                                label: Translations.of(context).common.home,
+                                isSelected: widget.selectedIndex == 0,
+                                isFocused: _focusTracker.isFocused(_kHome),
+                                onTap: () => widget.onDestinationSelected(0),
+                                focusNode: _focusTracker.get(_kHome),
+                                isCollapsed: isCollapsed,
+                              ),
+
+                              const SizedBox(height: 8),
+
+                              // Libraries section
+                              _buildLibrariesSection(visibleLibraries, t, isCollapsed: isCollapsed),
+
+                              const SizedBox(height: 8),
+
+                              // Live TV (only if DVR available)
+                              if (context.watch<MultiServerProvider>().hasLiveTv) ...[
+                                _buildNavItem(
+                                  icon: Symbols.live_tv_rounded,
+                                  selectedIcon: Symbols.live_tv_rounded,
+                                  label: Translations.of(context).navigation.liveTv,
+                                  isSelected: NavigationTab.isTabAtIndex(
+                                    NavigationTabId.liveTv,
+                                    widget.selectedIndex,
+                                    isOffline: widget.isOfflineMode,
+                                    hasLiveTv: true,
+                                  ),
+                                  isFocused: _focusTracker.isFocused('liveTv'),
+                                  onTap: () => widget.onDestinationSelected(
+                                    NavigationTab.indexFor(
+                                      NavigationTabId.liveTv,
+                                      isOffline: widget.isOfflineMode,
+                                      hasLiveTv: true,
+                                    ),
+                                  ),
+                                  focusNode: _focusTracker.get('liveTv'),
+                                  isCollapsed: isCollapsed,
+                                ),
+
+                                const SizedBox(height: 8),
+                              ],
+
+                              // Search
+                              _buildNavItem(
+                                icon: Symbols.search_rounded,
+                                selectedIcon: Symbols.search_rounded,
+                                label: Translations.of(context).common.search,
+                                isSelected: NavigationTab.isTabAtIndex(
+                                  NavigationTabId.search,
+                                  widget.selectedIndex,
+                                  isOffline: widget.isOfflineMode,
+                                  hasLiveTv: context.read<MultiServerProvider>().hasLiveTv,
+                                ),
+                                isFocused: _focusTracker.isFocused(_kSearch),
+                                onTap: () => widget.onDestinationSelected(
+                                  NavigationTab.indexFor(
+                                    NavigationTabId.search,
+                                    isOffline: widget.isOfflineMode,
+                                    hasLiveTv: context.read<MultiServerProvider>().hasLiveTv,
+                                  ),
+                                ),
+                                focusNode: _focusTracker.get(_kSearch),
+                                isCollapsed: isCollapsed,
+                              ),
+
+                              const SizedBox(height: 8),
+                            ],
+
+                            // Downloads
+                            Builder(
+                              builder: (context) {
+                                final hasLiveTv = context.read<MultiServerProvider>().hasLiveTv;
+                                return _buildNavItem(
+                                  icon: Symbols.download_rounded,
+                                  selectedIcon: Symbols.download_rounded,
+                                  label: Translations.of(context).navigation.downloads,
+                                  isSelected: NavigationTab.isTabAtIndex(
+                                    NavigationTabId.downloads,
+                                    widget.selectedIndex,
+                                    isOffline: widget.isOfflineMode,
+                                    hasLiveTv: hasLiveTv,
+                                  ),
+                                  isFocused: _focusTracker.isFocused(_kDownloads),
+                                  onTap: () => widget.onDestinationSelected(
+                                    NavigationTab.indexFor(
+                                      NavigationTabId.downloads,
+                                      isOffline: widget.isOfflineMode,
+                                      hasLiveTv: hasLiveTv,
+                                    ),
+                                  ),
+                                  focusNode: _focusTracker.get(_kDownloads),
+                                  isCollapsed: isCollapsed,
+                                );
+                              },
+                            ),
+
+                            const SizedBox(height: 8),
+
+                            // Settings
+                            Builder(
+                              builder: (context) {
+                                final hasLiveTv = context.read<MultiServerProvider>().hasLiveTv;
+                                return _buildNavItem(
+                                  icon: Symbols.settings_rounded,
+                                  selectedIcon: Symbols.settings_rounded,
+                                  label: Translations.of(context).common.settings,
+                                  isSelected: NavigationTab.isTabAtIndex(
+                                    NavigationTabId.settings,
+                                    widget.selectedIndex,
+                                    isOffline: widget.isOfflineMode,
+                                    hasLiveTv: hasLiveTv,
+                                  ),
+                                  isFocused: _focusTracker.isFocused(_kSettings),
+                                  onTap: () => widget.onDestinationSelected(
+                                    NavigationTab.indexFor(
+                                      NavigationTabId.settings,
+                                      isOffline: widget.isOfflineMode,
+                                      hasLiveTv: hasLiveTv,
+                                    ),
+                                  ),
+                                  focusNode: _focusTracker.get(_kSettings),
+                                  isCollapsed: isCollapsed,
+                                );
+                              },
+                            ),
+                          ],
                         ),
-
-                        const SizedBox(height: 8),
-
-                        // Libraries section
-                        _buildLibrariesSection(visibleLibraries, t, isCollapsed: isCollapsed),
-
-                        const SizedBox(height: 8),
-
-                        // Search
-                        _buildNavItem(
-                          icon: Symbols.search_rounded,
-                          selectedIcon: Symbols.search_rounded,
-                          label: Translations.of(context).common.search,
-                          isSelected: widget.selectedIndex == 2,
-                          isFocused: _focusTracker.isFocused(_kSearch),
-                          onTap: () => widget.onDestinationSelected(2),
-                          focusNode: _focusTracker.get(_kSearch),
-                          isCollapsed: isCollapsed,
-                        ),
-
-                        const SizedBox(height: 8),
-                      ],
-
-                      // Downloads
-                      _buildNavItem(
-                        icon: Symbols.download_rounded,
-                        selectedIcon: Symbols.download_rounded,
-                        label: Translations.of(context).navigation.downloads,
-                        isSelected: NavigationTab.isTabAtIndex(
-                          NavigationTabId.downloads,
-                          widget.selectedIndex,
-                          isOffline: widget.isOfflineMode,
-                        ),
-                        isFocused: _focusTracker.isFocused(_kDownloads),
-                        onTap: () => widget.onDestinationSelected(
-                          NavigationTab.indexFor(NavigationTabId.downloads, isOffline: widget.isOfflineMode),
-                        ),
-                        focusNode: _focusTracker.get(_kDownloads),
-                        isCollapsed: isCollapsed,
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      // Settings
-                      _buildNavItem(
-                        icon: Symbols.settings_rounded,
-                        selectedIcon: Symbols.settings_rounded,
-                        label: Translations.of(context).common.settings,
-                        isSelected: NavigationTab.isTabAtIndex(
-                          NavigationTabId.settings,
-                          widget.selectedIndex,
-                          isOffline: widget.isOfflineMode,
-                        ),
-                        isFocused: _focusTracker.isFocused(_kSettings),
-                        onTap: () => widget.onDestinationSelected(
-                          NavigationTab.indexFor(NavigationTabId.settings, isOffline: widget.isOfflineMode),
-                        ),
-                        focusNode: _focusTracker.get(_kSettings),
-                        isCollapsed: isCollapsed,
                       ),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         );
@@ -437,6 +542,30 @@ class SideNavigationRailState extends State<SideNavigationRail> {
     );
   }
 
+  Widget _buildReconnectItem({required bool isCollapsed}) {
+    final t = tokens(context);
+    final isFocused = _focusTracker.isFocused(_kReconnect);
+
+    return NavigationRailItem(
+      icon: widget.isReconnecting ? Symbols.sync_rounded : Symbols.wifi_rounded,
+      label: widget.isReconnecting
+          ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: t.text))
+          : Text(
+              Translations.of(context).common.reconnect,
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: t.textMuted),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+      isSelected: false,
+      isFocused: isFocused,
+      isCollapsed: isCollapsed,
+      // ignore: no-empty-block - no-op tap handler while reconnecting
+      onTap: widget.isReconnecting ? () {} : () => widget.onReconnect?.call(),
+      focusNode: _focusTracker.get(_kReconnect),
+      onNavigateRight: widget.onNavigateToContent,
+    );
+  }
+
   Widget _buildLibrariesSection(List<PlexLibrary> visibleLibraries, dynamic t, {bool isCollapsed = false}) {
     final librariesProvider = context.watch<LibrariesProvider>();
     final isLoading = librariesProvider.isLoading;
@@ -475,11 +604,11 @@ class SideNavigationRailState extends State<SideNavigationRail> {
               borderRadius: BorderRadius.circular(tokens(context).radiusMd),
               child: Container(
                 decoration: BoxDecoration(
-                  color: isLibrariesSelected
-                      ? t.text.withValues(alpha: 0.1)
-                      : isLibrariesFocused
-                      ? t.text.withValues(alpha: 0.08)
-                      : null,
+                  color: () {
+                    if (isLibrariesSelected) return t.text.withValues(alpha: 0.1);
+                    if (isLibrariesFocused) return t.text.withValues(alpha: 0.08);
+                    return null;
+                  }(),
                   borderRadius: BorderRadius.circular(tokens(context).radiusMd),
                 ),
                 clipBehavior: Clip.hardEdge,
@@ -551,26 +680,27 @@ class SideNavigationRailState extends State<SideNavigationRail> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 4),
-                isLoading
-                    ? Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Center(
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: t.textMuted),
-                          ),
-                        ),
-                      )
-                    : visibleLibraries.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          Translations.of(context).libraries.noLibrariesFound,
-                          style: TextStyle(fontSize: 12, color: t.textMuted),
-                        ),
-                      )
-                    : _buildLibraryItems(visibleLibraries, t),
+                if (isLoading)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: t.textMuted),
+                      ),
+                    ),
+                  )
+                else if (visibleLibraries.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      Translations.of(context).libraries.noLibrariesFound,
+                      style: TextStyle(fontSize: 12, color: t.textMuted),
+                    ),
+                  )
+                else
+                  _buildLibraryItems(visibleLibraries, t),
               ],
             ),
           ),

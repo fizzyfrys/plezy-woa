@@ -46,7 +46,12 @@
     "settings": "设置",
     "mute": "静音",
     "ok": "确定",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "reconnect": "重新连接",
+    "exitConfirmTitle": "退出应用？",
+    "exitConfirmMessage": "确定要退出吗？",
+    "dontAskAgain": "不再询问",
+    "exit": "退出"
   },
   "screens": {
     "licenses": "许可证",
@@ -185,7 +190,9 @@
     "matchContentFrameRate": "匹配内容帧率",
     "matchContentFrameRateDescription": "调整显示刷新率以匹配视频内容，减少画面抖动并节省电量",
     "requireProfileSelectionOnOpen": "打开应用时询问配置文件",
-    "requireProfileSelectionOnOpenDescription": "每次打开应用时显示配置文件选择"
+    "requireProfileSelectionOnOpenDescription": "每次打开应用时显示配置文件选择",
+    "confirmExitOnBack": "退出前确认",
+    "confirmExitOnBackDescription": "按返回键退出应用时显示确认对话框"
   },
   "search": {
     "hint": "搜索电影、系列、音乐...",
@@ -273,6 +280,7 @@
   },
   "tooltips": {
     "shufflePlay": "随机播放",
+    "playTrailer": "播放预告片",
     "markAsWatched": "标记为已观看",
     "markAsUnwatched": "标记为未观看"
   },
@@ -419,6 +427,7 @@
     "playEpisode": "S${season}E${episode}",
     "overview": "概述",
     "cast": "演员表",
+    "extras": "预告片与花絮",
     "seasons": "季数",
     "studio": "制作公司",
     "rating": "年龄分级",
@@ -527,7 +536,47 @@
   },
   "navigation": {
     "libraries": "媒体库",
-    "downloads": "下载"
+    "downloads": "下载",
+    "liveTv": "电视直播"
+  },
+  "liveTv": {
+    "title": "电视直播",
+    "channels": "频道",
+    "guide": "节目指南",
+    "recordings": "录制",
+    "subscriptions": "录制规则",
+    "scheduled": "已计划",
+    "noChannels": "没有可用的频道",
+    "noDvr": "没有服务器配置了DVR",
+    "tuneFailed": "无法调谐频道",
+    "loading": "正在加载频道...",
+    "nowPlaying": "正在播放",
+    "record": "录制",
+    "recordSeries": "录制系列",
+    "cancelRecording": "取消录制",
+    "deleteSubscription": "删除录制规则",
+    "deleteSubscriptionConfirm": "确定要删除此录制规则吗？",
+    "subscriptionDeleted": "录制规则已删除",
+    "noPrograms": "没有可用的节目数据",
+    "noRecordings": "没有计划的录制",
+    "noSubscriptions": "没有录制规则",
+    "channelNumber": "频道 ${number}",
+    "live": "直播",
+    "hd": "高清",
+    "premiere": "新",
+    "reloadGuide": "重新加载节目指南",
+    "guideReloaded": "节目指南已重新加载",
+    "allChannels": "所有频道",
+    "now": "现在",
+    "today": "今天",
+    "midnight": "午夜",
+    "overnight": "凌晨",
+    "morning": "上午",
+    "daytime": "白天",
+    "evening": "晚上",
+    "lateNight": "深夜",
+    "whatsOn": "正在播出",
+    "watchChannel": "观看频道"
   },
   "downloads": {
     "title": "下载",
@@ -758,5 +807,22 @@
     "hdr": "HDR",
     "audioOutput": "音频输出",
     "performanceOverlay": "性能监控"
+  },
+  "externalPlayer": {
+    "title": "外部播放器",
+    "useExternalPlayer": "使用外部播放器",
+    "useExternalPlayerDescription": "在外部应用中打开视频，而不是使用内置播放器",
+    "selectPlayer": "选择播放器",
+    "systemDefault": "系统默认",
+    "addCustomPlayer": "添加自定义播放器",
+    "playerName": "播放器名称",
+    "playerCommand": "命令",
+    "playerPackage": "包名",
+    "playerUrlScheme": "URL 方案",
+    "customPlayer": "自定义播放器",
+    "off": "关闭",
+    "launchFailed": "无法打开外部播放器",
+    "appNotInstalled": "${name} 未安装",
+    "playInExternalPlayer": "在外部播放器中播放"
   }
 }

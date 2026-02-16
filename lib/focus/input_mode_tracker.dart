@@ -76,8 +76,9 @@ class _InputModeTrackerState extends State<InputModeTracker> {
     // events after route pops (see BackKeySuppressorObserver).
     BackKeyPressTracker.handleKeyEvent(event);
 
-    // Only switch to keyboard mode on key down (not repeats or releases)
-    if (event is KeyDownEvent) {
+    // Only switch to keyboard mode on navigation key down (not repeats, releases,
+    // or non-navigation keys like volume buttons or letter keys while typing)
+    if (event is KeyDownEvent && event.logicalKey.isNavigationKey) {
       _setMode(InputMode.keyboard);
     }
     // Return false to let the event continue propagating
@@ -118,9 +119,7 @@ class _InputModeTrackerState extends State<InputModeTracker> {
       onPointerHover: (_) => _setMode(InputMode.pointer),
       behavior: HitTestBehavior.translucent,
       child: MouseRegion(
-        cursor: _mode == InputMode.keyboard
-            ? SystemMouseCursors.none
-            : MouseCursor.defer,
+        cursor: _mode == InputMode.keyboard ? SystemMouseCursors.none : MouseCursor.defer,
         child: IgnorePointer(
           ignoring: _mode == InputMode.keyboard,
           child: _InputModeProvider(mode: _mode, child: widget.child),

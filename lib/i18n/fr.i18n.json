@@ -46,7 +46,12 @@
     "settings": "Paramètres",
     "mute": "Muet",
     "ok": "OK",
-    "loading": "Chargement..."
+    "loading": "Chargement...",
+    "reconnect": "Reconnecter",
+    "exitConfirmTitle": "Quitter l'application ?",
+    "exitConfirmMessage": "Êtes-vous sûr de vouloir quitter ?",
+    "dontAskAgain": "Ne plus demander",
+    "exit": "Quitter"
   },
   "screens": {
     "licenses": "Licenses",
@@ -185,7 +190,9 @@
     "matchContentFrameRate": "Fréquence d'images du contenu correspondant",
     "matchContentFrameRateDescription": "Ajustez la fréquence de rafraîchissement de l'écran en fonction du contenu vidéo, ce qui réduit les saccades et économise la batterie",
     "requireProfileSelectionOnOpen": "Demander le profil à l'ouverture",
-    "requireProfileSelectionOnOpenDescription": "Afficher la sélection de profil à chaque ouverture de l'application"
+    "requireProfileSelectionOnOpenDescription": "Afficher la sélection de profil à chaque ouverture de l'application",
+    "confirmExitOnBack": "Confirmer avant de quitter",
+    "confirmExitOnBackDescription": "Afficher une boîte de dialogue de confirmation en appuyant sur retour pour quitter"
   },
   "search": {
     "hint": "Rechercher des films, des séries, de la musique...",
@@ -273,6 +280,7 @@
   },
   "tooltips": {
     "shufflePlay": "Lecture aléatoire",
+    "playTrailer": "Lire la bande-annonce",
     "markAsWatched": "Marqué comme vu",
     "markAsUnwatched": "Marqué comme non vu"
   },
@@ -419,6 +427,7 @@
     "playEpisode": "S${season}E${episode}",
     "overview": "Aperçu",
     "cast": "Cast",
+    "extras": "Bandes-annonces et Extras",
     "seasons": "Saisons",
     "studio": "Studio",
     "rating": "Évaluation",
@@ -527,7 +536,47 @@
   },
   "navigation": {
     "libraries": "Bibliothèques",
-    "downloads": "Téléchargements"
+    "downloads": "Téléchargements",
+    "liveTv": "TV en direct"
+  },
+  "liveTv": {
+    "title": "TV en direct",
+    "channels": "Chaînes",
+    "guide": "Guide",
+    "recordings": "Enregistrements",
+    "subscriptions": "Règles d'enregistrement",
+    "scheduled": "Programmés",
+    "noChannels": "Aucune chaîne disponible",
+    "noDvr": "Aucun DVR configuré sur les serveurs",
+    "tuneFailed": "Impossible de syntoniser la chaîne",
+    "loading": "Chargement des chaînes...",
+    "nowPlaying": "En cours de lecture",
+    "record": "Enregistrer",
+    "recordSeries": "Enregistrer la série",
+    "cancelRecording": "Annuler l'enregistrement",
+    "deleteSubscription": "Supprimer la règle d'enregistrement",
+    "deleteSubscriptionConfirm": "Voulez-vous vraiment supprimer cette règle d'enregistrement ?",
+    "subscriptionDeleted": "Règle d'enregistrement supprimée",
+    "noPrograms": "Aucune donnée de programme disponible",
+    "noRecordings": "Aucun enregistrement programmé",
+    "noSubscriptions": "Aucune règle d'enregistrement",
+    "channelNumber": "Ch. ${number}",
+    "live": "EN DIRECT",
+    "hd": "HD",
+    "premiere": "NOUVEAU",
+    "reloadGuide": "Recharger le guide",
+    "guideReloaded": "Données du guide rechargées",
+    "allChannels": "Toutes les chaînes",
+    "now": "Maintenant",
+    "today": "Aujourd'hui",
+    "midnight": "Minuit",
+    "overnight": "Nuit",
+    "morning": "Matin",
+    "daytime": "Journée",
+    "evening": "Soirée",
+    "lateNight": "Nuit tardive",
+    "whatsOn": "En ce moment",
+    "watchChannel": "Regarder la chaîne"
   },
   "collections": {
     "title": "Collections",
@@ -758,5 +807,22 @@
     "hdr": "HDR",
     "audioOutput": "Sortie audio",
     "performanceOverlay": "Superposition de performance"
+  },
+  "externalPlayer": {
+    "title": "Lecteur externe",
+    "useExternalPlayer": "Utiliser un lecteur externe",
+    "useExternalPlayerDescription": "Ouvrir les vidéos dans une application externe au lieu du lecteur intégré",
+    "selectPlayer": "Sélectionner le lecteur",
+    "systemDefault": "Par défaut du système",
+    "addCustomPlayer": "Ajouter un lecteur personnalisé",
+    "playerName": "Nom du lecteur",
+    "playerCommand": "Commande",
+    "playerPackage": "Nom du paquet",
+    "playerUrlScheme": "Schéma URL",
+    "customPlayer": "Lecteur personnalisé",
+    "off": "Désactivé",
+    "launchFailed": "Impossible d'ouvrir le lecteur externe",
+    "appNotInstalled": "${name} n'est pas installé",
+    "playInExternalPlayer": "Lire dans un lecteur externe"
   }
 }

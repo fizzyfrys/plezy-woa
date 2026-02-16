@@ -51,6 +51,19 @@ class PlayerAndroid extends PlayerBase {
       if (!initialized) {
         throw Exception('Failed to initialize ExoPlayer');
       }
+
+      // Register property observers so the plugin knows propId mappings
+      await observeProperty('time-pos', 'double');
+      await observeProperty('duration', 'double');
+      await observeProperty('pause', 'flag');
+      await observeProperty('paused-for-cache', 'flag');
+      await observeProperty('track-list', 'string');
+      await observeProperty('eof-reached', 'flag');
+      await observeProperty('volume', 'double');
+      await observeProperty('speed', 'double');
+      await observeProperty('aid', 'string');
+      await observeProperty('sid', 'string');
+      await observeProperty('demuxer-cache-time', 'double');
     } catch (e) {
       errorController.add('Initialization failed: $e');
       rethrow;
@@ -62,7 +75,7 @@ class PlayerAndroid extends PlayerBase {
   // ============================================
 
   @override
-  Future<void> open(Media media, {bool play = true}) async {
+  Future<void> open(Media media, {bool play = true, bool isLive = false}) async {
     checkDisposed();
     await _ensureInitialized();
 
@@ -74,6 +87,7 @@ class PlayerAndroid extends PlayerBase {
       'headers': media.headers,
       'startPositionMs': media.start?.inMilliseconds ?? 0,
       'autoPlay': play,
+      'isLive': isLive,
     });
   }
 
@@ -231,7 +245,7 @@ class PlayerAndroid extends PlayerBase {
     // Handle MPV commands by translating to ExoPlayer equivalents
     if (args.isEmpty) return;
 
-    switch (args[0]) {
+    switch (args.first) {
       case 'loadfile':
         if (args.length > 1) {
           await open(Media(args[1]));

@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+    <!-- Allow minSdk=25 despite libmpv-android declaring minSdk=26 -->
+    <uses-sdk tools:overrideLibrary="dev.jdtech.mpv" />
+
     <!-- Internet access permissions -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
@@ -13,6 +16,10 @@
     <!-- Media session permissions for OS media controls -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
+
+    <!-- Background download notifications and foreground service -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
 
     <!-- Explicitly remove media permissions that media_kit may add -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" tools:node="remove" />
@@ -69,6 +76,16 @@
                 <data android:scheme="plezy" android:host="play"/>
             </intent-filter>
         </activity>
+        <!-- FileProvider for sharing downloaded files with external players -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.edde746.plezy.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_provider_paths" />
+        </provider>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
@@ -93,6 +110,11 @@
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="http" />
+        </intent>
+        <!-- Required to resolve external video player apps on Android 11+ -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="video/*" />
         </intent>
     </queries>
 </manifest>

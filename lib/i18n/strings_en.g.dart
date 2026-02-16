@@ -68,6 +68,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final TranslationsLogsEn logs = TranslationsLogsEn._(_root);
 	late final TranslationsLicensesEn licenses = TranslationsLicensesEn._(_root);
 	late final TranslationsNavigationEn navigation = TranslationsNavigationEn._(_root);
+	late final TranslationsLiveTvEn liveTv = TranslationsLiveTvEn._(_root);
 	late final TranslationsCollectionsEn collections = TranslationsCollectionsEn._(_root);
 	late final TranslationsPlaylistsEn playlists = TranslationsPlaylistsEn._(_root);
 	late final TranslationsWatchTogetherEn watchTogether = TranslationsWatchTogetherEn._(_root);
@@ -75,6 +76,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final TranslationsShadersEn shaders = TranslationsShadersEn._(_root);
 	late final TranslationsCompanionRemoteEn companionRemote = TranslationsCompanionRemoteEn._(_root);
 	late final TranslationsVideoSettingsEn videoSettings = TranslationsVideoSettingsEn._(_root);
+	late final TranslationsExternalPlayerEn externalPlayer = TranslationsExternalPlayerEn._(_root);
 }
 
 // Path: app
@@ -231,6 +233,21 @@ class TranslationsCommonEn {
 
 	/// en: 'Loading...'
 	String get loading => 'Loading...';
+
+	/// en: 'Reconnect'
+	String get reconnect => 'Reconnect';
+
+	/// en: 'Exit app?'
+	String get exitConfirmTitle => 'Exit app?';
+
+	/// en: 'Are you sure you want to exit?'
+	String get exitConfirmMessage => 'Are you sure you want to exit?';
+
+	/// en: 'Don't ask again'
+	String get dontAskAgain => 'Don\'t ask again';
+
+	/// en: 'Exit'
+	String get exit => 'Exit';
 }
 
 // Path: screens
@@ -657,6 +674,12 @@ class TranslationsSettingsEn {
 
 	/// en: 'Show profile selection every time the app is opened'
 	String get requireProfileSelectionOnOpenDescription => 'Show profile selection every time the app is opened';
+
+	/// en: 'Confirm before exiting'
+	String get confirmExitOnBack => 'Confirm before exiting';
+
+	/// en: 'Show a confirmation dialog when pressing back to exit the app'
+	String get confirmExitOnBackDescription => 'Show a confirmation dialog when pressing back to exit the app';
 }
 
 // Path: search
@@ -878,6 +901,9 @@ class TranslationsTooltipsEn {
 
 	/// en: 'Shuffle play'
 	String get shufflePlay => 'Shuffle play';
+
+	/// en: 'Play trailer'
+	String get playTrailer => 'Play trailer';
 
 	/// en: 'Mark as watched'
 	String get markAsWatched => 'Mark as watched';
@@ -1319,6 +1345,9 @@ class TranslationsDiscoverEn {
 	/// en: 'Cast'
 	String get cast => 'Cast';
 
+	/// en: 'Trailers & Extras'
+	String get extras => 'Trailers & Extras';
+
 	/// en: 'Seasons'
 	String get seasons => 'Seasons';
 
@@ -1630,6 +1659,129 @@ class TranslationsNavigationEn {
 
 	/// en: 'Downloads'
 	String get downloads => 'Downloads';
+
+	/// en: 'Live TV'
+	String get liveTv => 'Live TV';
+}
+
+// Path: liveTv
+class TranslationsLiveTvEn {
+	TranslationsLiveTvEn._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Live TV'
+	String get title => 'Live TV';
+
+	/// en: 'Channels'
+	String get channels => 'Channels';
+
+	/// en: 'Guide'
+	String get guide => 'Guide';
+
+	/// en: 'Recordings'
+	String get recordings => 'Recordings';
+
+	/// en: 'Subscriptions'
+	String get subscriptions => 'Subscriptions';
+
+	/// en: 'Scheduled'
+	String get scheduled => 'Scheduled';
+
+	/// en: 'No channels available'
+	String get noChannels => 'No channels available';
+
+	/// en: 'No DVR configured on any server'
+	String get noDvr => 'No DVR configured on any server';
+
+	/// en: 'Failed to tune channel'
+	String get tuneFailed => 'Failed to tune channel';
+
+	/// en: 'Loading channels...'
+	String get loading => 'Loading channels...';
+
+	/// en: 'Now Playing'
+	String get nowPlaying => 'Now Playing';
+
+	/// en: 'Record'
+	String get record => 'Record';
+
+	/// en: 'Record Series'
+	String get recordSeries => 'Record Series';
+
+	/// en: 'Cancel Recording'
+	String get cancelRecording => 'Cancel Recording';
+
+	/// en: 'Delete Recording Rule'
+	String get deleteSubscription => 'Delete Recording Rule';
+
+	/// en: 'Are you sure you want to delete this recording rule?'
+	String get deleteSubscriptionConfirm => 'Are you sure you want to delete this recording rule?';
+
+	/// en: 'Recording rule deleted'
+	String get subscriptionDeleted => 'Recording rule deleted';
+
+	/// en: 'No program data available'
+	String get noPrograms => 'No program data available';
+
+	/// en: 'No recordings scheduled'
+	String get noRecordings => 'No recordings scheduled';
+
+	/// en: 'No recording rules'
+	String get noSubscriptions => 'No recording rules';
+
+	/// en: 'Ch. ${number}'
+	String channelNumber({required Object number}) => 'Ch. ${number}';
+
+	/// en: 'LIVE'
+	String get live => 'LIVE';
+
+	/// en: 'HD'
+	String get hd => 'HD';
+
+	/// en: 'NEW'
+	String get premiere => 'NEW';
+
+	/// en: 'Reload Guide'
+	String get reloadGuide => 'Reload Guide';
+
+	/// en: 'Guide data reloaded'
+	String get guideReloaded => 'Guide data reloaded';
+
+	/// en: 'All Channels'
+	String get allChannels => 'All Channels';
+
+	/// en: 'Now'
+	String get now => 'Now';
+
+	/// en: 'Today'
+	String get today => 'Today';
+
+	/// en: 'Midnight'
+	String get midnight => 'Midnight';
+
+	/// en: 'Overnight'
+	String get overnight => 'Overnight';
+
+	/// en: 'Morning'
+	String get morning => 'Morning';
+
+	/// en: 'Daytime'
+	String get daytime => 'Daytime';
+
+	/// en: 'Evening'
+	String get evening => 'Evening';
+
+	/// en: 'Late Night'
+	String get lateNight => 'Late Night';
+
+	/// en: 'What's On'
+	String get whatsOn => 'What\'s On';
+
+	/// en: 'Watch Channel'
+	String get watchChannel => 'Watch Channel';
 }
 
 // Path: collections
@@ -2098,6 +2250,60 @@ class TranslationsVideoSettingsEn {
 	String get performanceOverlay => 'Performance Overlay';
 }
 
+// Path: externalPlayer
+class TranslationsExternalPlayerEn {
+	TranslationsExternalPlayerEn._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'External Player'
+	String get title => 'External Player';
+
+	/// en: 'Use External Player'
+	String get useExternalPlayer => 'Use External Player';
+
+	/// en: 'Open videos in an external app instead of the built-in player'
+	String get useExternalPlayerDescription => 'Open videos in an external app instead of the built-in player';
+
+	/// en: 'Select Player'
+	String get selectPlayer => 'Select Player';
+
+	/// en: 'System Default'
+	String get systemDefault => 'System Default';
+
+	/// en: 'Add Custom Player'
+	String get addCustomPlayer => 'Add Custom Player';
+
+	/// en: 'Player Name'
+	String get playerName => 'Player Name';
+
+	/// en: 'Command'
+	String get playerCommand => 'Command';
+
+	/// en: 'Package Name'
+	String get playerPackage => 'Package Name';
+
+	/// en: 'URL Scheme'
+	String get playerUrlScheme => 'URL Scheme';
+
+	/// en: 'Custom Player'
+	String get customPlayer => 'Custom Player';
+
+	/// en: 'Off'
+	String get off => 'Off';
+
+	/// en: 'Failed to open external player'
+	String get launchFailed => 'Failed to open external player';
+
+	/// en: '${name} is not installed'
+	String appNotInstalled({required Object name}) => '${name} is not installed';
+
+	/// en: 'Play in External Player'
+	String get playInExternalPlayer => 'Play in External Player';
+}
+
 // Path: hotkeys.actions
 class TranslationsHotkeysActionsEn {
 	TranslationsHotkeysActionsEn._(this._root);
@@ -2545,6 +2751,11 @@ extension on Translations {
 			'common.mute' => 'Mute',
 			'common.ok' => 'OK',
 			'common.loading' => 'Loading...',
+			'common.reconnect' => 'Reconnect',
+			'common.exitConfirmTitle' => 'Exit app?',
+			'common.exitConfirmMessage' => 'Are you sure you want to exit?',
+			'common.dontAskAgain' => 'Don\'t ask again',
+			'common.exit' => 'Exit',
 			'screens.licenses' => 'Licenses',
 			'screens.switchProfile' => 'Switch Profile',
 			'screens.subtitleStyling' => 'Subtitle Styling',
@@ -2678,6 +2889,8 @@ extension on Translations {
 			'settings.matchContentFrameRateDescription' => 'Adjust display refresh rate to match video content, reducing judder and saving battery',
 			'settings.requireProfileSelectionOnOpen' => 'Ask for profile on app open',
 			'settings.requireProfileSelectionOnOpenDescription' => 'Show profile selection every time the app is opened',
+			'settings.confirmExitOnBack' => 'Confirm before exiting',
+			'settings.confirmExitOnBackDescription' => 'Show a confirmation dialog when pressing back to exit the app',
 			'search.hint' => 'Search movies, shows, music...',
 			'search.tryDifferentTerm' => 'Try a different search term',
 			'search.searchYourMedia' => 'Search your media',
@@ -2749,6 +2962,7 @@ extension on Translations {
 			'accessibility.mediaCardUnwatched' => 'unwatched',
 			'accessibility.tapToPlay' => 'Tap to play',
 			'tooltips.shufflePlay' => 'Shuffle play',
+			'tooltips.playTrailer' => 'Play trailer',
 			'tooltips.markAsWatched' => 'Mark as watched',
 			'tooltips.markAsUnwatched' => 'Mark as unwatched',
 			'videoControls.audioLabel' => 'Audio',
@@ -2879,6 +3093,7 @@ extension on Translations {
 			'discover.playEpisode' => ({required Object season, required Object episode}) => 'S${season}E${episode}',
 			'discover.overview' => 'Overview',
 			'discover.cast' => 'Cast',
+			'discover.extras' => 'Trailers & Extras',
 			'discover.seasons' => 'Seasons',
 			'discover.studio' => 'Studio',
 			'discover.rating' => 'Rating',
@@ -2968,6 +3183,46 @@ extension on Translations {
 			'licenses.licensesCount' => ({required Object count}) => '${count} licenses',
 			'navigation.libraries' => 'Libraries',
 			'navigation.downloads' => 'Downloads',
+			'navigation.liveTv' => 'Live TV',
+			'liveTv.title' => 'Live TV',
+			'liveTv.channels' => 'Channels',
+			'liveTv.guide' => 'Guide',
+			'liveTv.recordings' => 'Recordings',
+			'liveTv.subscriptions' => 'Subscriptions',
+			'liveTv.scheduled' => 'Scheduled',
+			'liveTv.noChannels' => 'No channels available',
+			'liveTv.noDvr' => 'No DVR configured on any server',
+			'liveTv.tuneFailed' => 'Failed to tune channel',
+			'liveTv.loading' => 'Loading channels...',
+			'liveTv.nowPlaying' => 'Now Playing',
+			'liveTv.record' => 'Record',
+			'liveTv.recordSeries' => 'Record Series',
+			'liveTv.cancelRecording' => 'Cancel Recording',
+			'liveTv.deleteSubscription' => 'Delete Recording Rule',
+			'liveTv.deleteSubscriptionConfirm' => 'Are you sure you want to delete this recording rule?',
+			'liveTv.subscriptionDeleted' => 'Recording rule deleted',
+			'liveTv.noPrograms' => 'No program data available',
+			'liveTv.noRecordings' => 'No recordings scheduled',
+			'liveTv.noSubscriptions' => 'No recording rules',
+			'liveTv.channelNumber' => ({required Object number}) => 'Ch. ${number}',
+			'liveTv.live' => 'LIVE',
+			'liveTv.hd' => 'HD',
+			'liveTv.premiere' => 'NEW',
+			'liveTv.reloadGuide' => 'Reload Guide',
+			'liveTv.guideReloaded' => 'Guide data reloaded',
+			'liveTv.allChannels' => 'All Channels',
+			'liveTv.now' => 'Now',
+			'liveTv.today' => 'Today',
+			'liveTv.midnight' => 'Midnight',
+			'liveTv.overnight' => 'Overnight',
+			'liveTv.morning' => 'Morning',
+			'liveTv.daytime' => 'Daytime',
+			'liveTv.evening' => 'Evening',
+			'liveTv.lateNight' => 'Late Night',
+			'liveTv.whatsOn' => 'What\'s On',
+			_ => null,
+		} ?? switch (path) {
+			'liveTv.watchChannel' => 'Watch Channel',
 			'collections.title' => 'Collections',
 			'collections.collection' => 'Collection',
 			'collections.empty' => 'Collection is empty',
@@ -3014,8 +3269,6 @@ extension on Translations {
 			'playlists.errorDeleting' => 'Failed to delete playlist',
 			'playlists.errorLoading' => 'Failed to load playlists',
 			'playlists.errorAdding' => 'Failed to add to playlist',
-			_ => null,
-		} ?? switch (path) {
 			'playlists.errorReordering' => 'Failed to reorder playlist item',
 			'playlists.errorRemoving' => 'Failed to remove from playlist',
 			'watchTogether.title' => 'Watch Together',
@@ -3180,6 +3433,21 @@ extension on Translations {
 			'videoSettings.hdr' => 'HDR',
 			'videoSettings.audioOutput' => 'Audio Output',
 			'videoSettings.performanceOverlay' => 'Performance Overlay',
+			'externalPlayer.title' => 'External Player',
+			'externalPlayer.useExternalPlayer' => 'Use External Player',
+			'externalPlayer.useExternalPlayerDescription' => 'Open videos in an external app instead of the built-in player',
+			'externalPlayer.selectPlayer' => 'Select Player',
+			'externalPlayer.systemDefault' => 'System Default',
+			'externalPlayer.addCustomPlayer' => 'Add Custom Player',
+			'externalPlayer.playerName' => 'Player Name',
+			'externalPlayer.playerCommand' => 'Command',
+			'externalPlayer.playerPackage' => 'Package Name',
+			'externalPlayer.playerUrlScheme' => 'URL Scheme',
+			'externalPlayer.customPlayer' => 'Custom Player',
+			'externalPlayer.off' => 'Off',
+			'externalPlayer.launchFailed' => 'Failed to open external player',
+			'externalPlayer.appNotInstalled' => ({required Object name}) => '${name} is not installed',
+			'externalPlayer.playInExternalPlayer' => 'Play in External Player',
 			_ => null,
 		};
 	}
