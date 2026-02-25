@@ -30,9 +30,10 @@ HWND MpvContainer::Create() {
   ::RegisterClassExW(&window_class);
 
   // Use WS_POPUP for a borderless window without title bar.
-  // Use WS_EX_TOOLWINDOW | WS_EX_NOREDIRECTIONBITMAP to prevent shadow and DWM effects.
+  // Use WS_EX_TOOLWINDOW to prevent taskbar presence.
+  // Removed WS_EX_NOREDIRECTIONBITMAP to give DWM a proper redirection surface.
   handle_ = ::CreateWindowExW(
-      WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_NOREDIRECTIONBITMAP,
+      WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
       kClassName, kWindowName, WS_POPUP,
       0, 0, 100, 100, nullptr, nullptr,
       GetModuleHandle(nullptr), nullptr);
