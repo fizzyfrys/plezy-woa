@@ -22,6 +22,9 @@ MpvCore::MpvCore(HWND flutter_window, HWND flutter_child_window)
       flutter_child_window_(flutter_child_window) {}
 
 MpvCore::~MpvCore() {
+  // Stop the DWM sync thread first to avoid use-after-free.
+  StopDwmSyncThread();
+
   // Close all mpv views.
   for (const auto& [mpv_view, rect] : mpv_views_) {
     ::SendMessage(mpv_view, WM_CLOSE, 0, 0);
@@ -102,7 +105,13 @@ void MpvCore::SetVisible(bool visible) {
       }
       ::ShowWindow(container_, SW_SHOWNOACTIVATE);
       ::DwmFlush();  // Single sync with DWM after all operations
+
+      // Start continuous DWM sync to eliminate frame compositing race.
+      StartDwmSyncThread();
     } else {
+      // Stop the sync thread before hiding.
+      StopDwmSyncThread();
+
       SetWindowComposition(flutter_window_, 0, 0);
       composition_enabled_ = false;
       ::ShowWindow(container_, SW_HIDE);
@@ -131,6 +140,10 @@ std::optional<HRESULT> MpvCore::WindowProc(HWND hwnd, UINT message,
           last_wm_size_wparam_ == SIZE_MAXIMIZED ||
           was_window_hidden_due_to_minimize_) {
         was_window_hidden_due_to_minimize_ = false;
+
+        // Stop sync thread since we're hiding the container.
+        StopDwmSyncThread();
+
         SetWindowComposition(flutter_window_, 0, 0);
         composition_enabled_ = false;
         ::ShowWindow(container_, SW_HIDE);
@@ -169,6 +182,9 @@ std::optional<HRESULT> MpvCore::WindowProc(HWND hwnd, UINT message,
           // Force a redraw to ensure Flutter's render surface is correctly sized
           ::RedrawWindow(flutter_window_, nullptr, nullptr,
                          RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+
+          // Restart continuous DWM sync now that the container is visible again.
+          StartDwmSyncThread();
         }
       }
       break;
@@ -211,6 +227,33 @@ std::optional<HRESULT> MpvCore::WindowProc(HWND hwnd, UINT message,
 
 void MpvCore::RedrawMpvViews() {
   ::RedrawWindow(container_, 0, 0, RDW_INVALIDATE | RDW_ALLCHILDREN);
+}
+
+void MpvCore::StartDwmSyncThread() {
+  if (dwm_sync_running_.load()) return;  // Already running.
+  dwm_sync_running_.store(true);
+  dwm_sync_thread_ = std::thread(&MpvCore::DwmSyncLoop, this);
+}
+
+void MpvCore::StopDwmSyncThread() {
+  if (!dwm_sync_running_.load()) return;  // Not running.
+  dwm_sync_running_.store(false);
+  dwm_sync_cv_.notify_all();
+  if (dwm_sync_thread_.joinable()) {
+    dwm_sync_thread_.join();
+  }
+}
+
+void MpvCore::DwmSyncLoop() {
+  // DwmFlush() blocks until DWM finishes compositing the current frame,
+  // then returns. By calling it in a tight loop we ensure that every time
+  // MPV presents a new D3D11 frame, DWM is already idle and ready to
+  // composite it cleanly — eliminating the race that causes white line
+  // artifacts. The call naturally throttles to the display refresh rate
+  // (typically 60 or 120 Hz), so CPU overhead is negligible.
+  while (dwm_sync_running_.load()) {
+    ::DwmFlush();
+  }
 }
 
 RECT MpvCore::GetGlobalRect(int32_t left, int32_t top, int32_t right,

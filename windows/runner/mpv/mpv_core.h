@@ -3,10 +3,14 @@
 
 #include <Windows.h>
 
+#include <atomic>
 #include <cmath>
+#include <condition_variable>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <thread>
 
 namespace mpv {
 
@@ -51,6 +55,11 @@ class MpvCore {
   void RedrawMpvViews();
   RECT GetGlobalRect(int32_t left, int32_t top, int32_t right, int32_t bottom);
 
+  // Starts and stops the DWM flush sync thread.
+  void StartDwmSyncThread();
+  void StopDwmSyncThread();
+  void DwmSyncLoop();
+
   HWND flutter_window_ = nullptr;
   HWND flutter_child_window_ = nullptr;
   HWND container_ = nullptr;
@@ -60,6 +69,14 @@ class MpvCore {
   bool was_window_hidden_due_to_minimize_ = false;
   bool visible_ = true;
   bool composition_enabled_ = false;
+
+  // DWM frame sync thread — calls DwmFlush() to synchronize MPV's D3D11
+  // surface with Flutter's ANGLE surface, preventing compositing race conditions
+  // that manifest as brief white line artifacts during playback.
+  std::thread dwm_sync_thread_;
+  std::atomic<bool> dwm_sync_running_{false};
+  std::mutex dwm_sync_mutex_;
+  std::condition_variable dwm_sync_cv_;
 
   static std::unique_ptr<MpvCore> instance_;
   static std::optional<int32_t> proc_id_;
