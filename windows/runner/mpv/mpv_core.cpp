@@ -73,12 +73,23 @@ void MpvCore::DisposeMpvView(HWND mpv_hwnd) {
 
 void MpvCore::SetHitTestBehavior(int32_t hittest_behavior) {
   LONG ex_style = ::GetWindowLong(flutter_window_, GWL_EXSTYLE);
+
+  // Compute the desired style without immediately applying it.
+  LONG desired_style;
   if (hittest_behavior) {
-    ex_style |= (WS_EX_TRANSPARENT | WS_EX_LAYERED);
+    desired_style = ex_style | (WS_EX_TRANSPARENT | WS_EX_LAYERED);
   } else {
-    ex_style &= ~(WS_EX_TRANSPARENT | WS_EX_LAYERED);
+    desired_style = ex_style & ~(WS_EX_TRANSPARENT | WS_EX_LAYERED);
   }
-  ::SetWindowLong(flutter_window_, GWL_EXSTYLE, ex_style);
+
+  // Guard: only apply if the style actually needs to change.
+  // This prevents redundant SWP_FRAMECHANGED + DwmFlush() calls on every
+  // WM_WINDOWPOSCHANGED / WM_MOUSEMOVE message (which fire continuously),
+  // each of which forces DWM to re-evaluate the ANGLE render surface and
+  // creates an opportunity for the Adreno driver to corrupt a scanline.
+  if (desired_style == ex_style) return;
+
+  ::SetWindowLong(flutter_window_, GWL_EXSTYLE, desired_style);
 
   // Force Windows to recalculate window frame after extended style changes.
   // This ensures the render surface dimensions match the new window state.
